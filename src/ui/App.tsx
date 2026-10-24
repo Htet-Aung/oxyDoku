@@ -849,7 +849,7 @@ export default function App() {
       </header>
 
       <main
-        className="layout"
+        className={`layout${scannerOpen ? ' has-scanner' : ''}`}
         // touch has no Escape key: a tap on the empty space around the
         // board clears the selection. A tap, not any touch: a scroll that
         // starts beside the board (on a tablet, or in multi-select, where
@@ -870,7 +870,9 @@ export default function App() {
           {/* while paused, Nutella moves onto the pause card instead */}
           {showPoodle && (!paused || won) && <Poodle />}
         </div>
-        <aside className={`side${paused && !won ? ' paused' : ''}`}>
+        <aside
+          className={`side${paused && !won ? ' paused' : ''}${scannerOpen ? ' scanner-open' : ''}${info?.practiceTech && practiceMode !== 'inactive' ? ' practice-open' : ''}`}
+        >
           <div className="menu-row">
             <button onClick={() => setDialog('new')}>
               <span className="menu-icon">▦</span>{t('New')}

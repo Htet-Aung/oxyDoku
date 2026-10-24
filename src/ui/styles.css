@@ -2411,6 +2411,28 @@ kbd {
   }
 }
 
+/* desktop: when Pattern Scanner or Practice tool is open, expand the side panel
+   to fill the available horizontal space to the right instead of leaving a wide dead zone */
+@media (min-width: 861px) {
+  .side.scanner-open,
+  .side.practice-open {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 320px;
+    max-width: min(920px, calc(100vw - 360px));
+  }
+
+  .side.scanner-open .controls,
+  .side.practice-open .controls {
+    max-width: 340px;
+  }
+
+  .side.scanner-open .menu-row,
+  .side.practice-open .menu-row {
+    max-width: 520px;
+  }
+}
+
 @media (max-width: 860px) {
   .layout {
     flex-direction: column;
@@ -3274,6 +3296,9 @@ html:not([lang='en']) .zone-note {
   gap: 10px;
   max-height: min(85vh, 760px);
   overflow-y: auto;
+  width: 100%;
+  box-sizing: border-box;
+  order: -1;
 }
 
 .pattern-scanner-head {
@@ -3358,8 +3383,13 @@ html:not([lang='en']) .zone-note {
 /* toolbar */
 .scanner-toolbar {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 8px;
+  align-items: center;
+}
+
+.scanner-search-wrap {
+  flex: 1 1 180px;
 }
 
 .scanner-search-wrap input.scanner-search-input {
