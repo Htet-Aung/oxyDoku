@@ -120,14 +120,15 @@ function propagateNet(g: Grid): boolean {
  * contradictions that plain singles propagation (Nishio, which runs earlier)
  * cannot reach.
  */
-export function findForcingNet(g: Grid): Step | null {
+export function* iterForcingNet(g: Grid, excludeNishio = false): Generator<Step> {
   for (let cell = 0; cell < 81; cell++) {
     if (g.values[cell] !== 0) continue;
     for (const d of digitsOf(g.cands[cell])) {
+      if (excludeNishio && branch(g, cell, d) === null) continue;
       const b = cloneGrid(g);
       setValue(b, cell, d);
       if (!propagateNet(b)) {
-        return {
+        yield {
           tech: 'FORCING_NET',
           placements: [],
           eliminations: [{ cell, digit: d }],
@@ -138,7 +139,10 @@ export function findForcingNet(g: Grid): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findForcingNet(g: Grid): Step | null {
+  return iterForcingNet(g, false).next().value ?? null;
 }
 
 /** Assume cell=digit and propagate; null means contradiction. */
@@ -172,18 +176,21 @@ export function contradictionStep(g: Grid, cell: number, d: number): Step | null
 }
 
 /** Nishio: a candidate whose assumption self-destructs is eliminated. */
-export function findNishio(g: Grid): Step | null {
+export function* iterNishio(g: Grid): Generator<Step> {
   for (let cell = 0; cell < 81; cell++) {
     if (g.values[cell] !== 0) continue;
     for (const d of digitsOf(g.cands[cell])) {
       if (branch(g, cell, d) === null) {
         // the branch broke by singles, so the trail finds the same break
         const step = contradictionStep(g, cell, d);
-        if (step) return step;
+        if (step) yield step;
       }
     }
   }
-  return null;
+}
+
+export function findNishio(g: Grid): Step | null {
+  return iterNishio(g).next().value ?? null;
 }
 
 /** Conclusions common to every viable branch. */
@@ -259,7 +266,7 @@ function verityStep(g: Grid, origin: CellDigit[], branches: Grid[], over: Over):
  * self-destructs, it must be true and is placed. (The placed-parity
  * contradiction is Nishio's find and is left to it.)
  */
-export function findDigitForcing(g: Grid): Step | null {
+export function* iterDigitForcing(g: Grid): Generator<Step> {
   for (let cell = 0; cell < 81; cell++) {
     if (g.values[cell] !== 0) continue;
     for (const d of digitsOf(g.cands[cell])) {
@@ -269,7 +276,7 @@ export function findDigitForcing(g: Grid): Step | null {
       const offOk = propagate(off);
       if (!offOk && on) {
         const drawn = contradictionDrawing(g, cell, d, false);
-        return {
+        yield {
           tech: 'DIGIT_FORCING_CHAIN',
           placements: [{ cell, digit: d }],
           eliminations: [],
@@ -280,6 +287,7 @@ export function findDigitForcing(g: Grid): Step | null {
           labels: forcingLabels(),
           description: tr`Digit forcing: removing ${d} from ${cellName(cell)} collapses the puzzle via forced singles, so ${cellName(cell)} must be ${d}.`
         };
+        continue;
       }
       if (!on || !offOk) continue;
       const { places, elims } = intersectBranches(g, [on, off]);
@@ -290,7 +298,7 @@ export function findDigitForcing(g: Grid): Step | null {
         ...conclusionDrawing(g, cell, d, true, conclusion),
         ...conclusionDrawing(g, cell, d, false, conclusion)
       ];
-      return {
+      yield {
         tech: 'DIGIT_FORCING_CHAIN',
         placements: places,
         eliminations: elims,
@@ -306,11 +314,14 @@ export function findDigitForcing(g: Grid): Step | null {
       };
     }
   }
-  return null;
+}
+
+export function findDigitForcing(g: Grid): Step | null {
+  return iterDigitForcing(g).next().value ?? null;
 }
 
 /** Try every candidate of a cell; keep what all outcomes agree on. */
-export function findCellForcing(g: Grid): Step | null {
+export function* iterCellForcing(g: Grid): Generator<Step> {
   for (let cell = 0; cell < 81; cell++) {
     if (g.values[cell] !== 0) continue;
     const ds = digitsOf(g.cands[cell]);
@@ -332,13 +343,16 @@ export function findCellForcing(g: Grid): Step | null {
       branches,
       { cell }
     );
-    if (step) return step;
+    if (step) yield step;
   }
-  return null;
+}
+
+export function findCellForcing(g: Grid): Step | null {
+  return iterCellForcing(g).next().value ?? null;
 }
 
 /** Try every position of a digit in a unit; keep the common conclusions. */
-export function findUnitForcing(g: Grid): Step | null {
+export function* iterUnitForcing(g: Grid): Generator<Step> {
   for (const [ui, unit] of UNITS.entries()) {
     for (let d = 1; d <= 9; d++) {
       if (unit.some((c) => g.values[c] === d)) continue;
@@ -361,8 +375,11 @@ export function findUnitForcing(g: Grid): Step | null {
         branches,
         { digit: d, unit: ui }
       );
-      if (step) return step;
+      if (step) yield step;
     }
   }
-  return null;
+}
+
+export function findUnitForcing(g: Grid): Step | null {
+  return iterUnitForcing(g).next().value ?? null;
 }

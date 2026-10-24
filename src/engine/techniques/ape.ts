@@ -1,4 +1,4 @@
-import { Grid, PEERS, bit, digitsOf, sees, cellName } from '../board';
+import { Grid, PEERS, bit, digitsOf, cellName } from '../board';
 import { Step, CellDigit } from '../steps';
 import { collectAls, Als } from './als';
 import { tr } from '../text';
@@ -15,8 +15,11 @@ import { tr } from '../text';
  *
  * A candidate that appears in no surviving pair cannot be placed at all.
  */
-export function findAlignedPairExclusion(g: Grid): Step | null {
-  const alses = collectAls(g, 4, 400);
+export function* iterAlignedPairExclusion(
+  g: Grid,
+  onBudgetHit?: () => void
+): Generator<Step> {
+  const alses = collectAls(g, 4, 400, onBudgetHit);
   const peerSets: Set<number>[] = PEERS.map((p) => new Set(p));
 
   for (let a = 0; a < 81; a++) {
@@ -37,7 +40,7 @@ export function findAlignedPairExclusion(g: Grid): Step | null {
       const dsB = digitsOf(g.cands[b]);
       const validA = new Set<number>();
       const validB = new Set<number>();
-      let killers: Als[] = [];
+      const killers: Als[] = [];
       for (const da of dsA) {
         for (const db of dsB) {
           if (da === db) continue; // the cells see each other
@@ -56,7 +59,7 @@ export function findAlignedPairExclusion(g: Grid): Step | null {
       for (const da of dsA) if (!validA.has(da)) elims.push({ cell: a, digit: da });
       for (const db of dsB) if (!validB.has(db)) elims.push({ cell: b, digit: db });
       if (!elims.length) continue;
-      return {
+      yield {
         tech: 'ALIGNED_PAIR_EXCLUSION',
         placements: [],
         eliminations: elims,
@@ -78,5 +81,8 @@ export function findAlignedPairExclusion(g: Grid): Step | null {
       };
     }
   }
-  return null;
+}
+
+export function findAlignedPairExclusion(g: Grid): Step | null {
+  return iterAlignedPairExclusion(g).next().value ?? null;
 }

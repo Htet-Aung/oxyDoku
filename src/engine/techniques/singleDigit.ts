@@ -40,18 +40,56 @@ export function strongLinks(g: Grid, d: number): StrongLink[] {
 const linkUnit = (l: StrongLink) =>
   l.type === 'row' ? rowOf(l.a) : l.type === 'col' ? 9 + colOf(l.a) : 18 + boxOf(l.a);
 
+const canonicalChain4 = (a: number, p: number, q: number, b: number): string => {
+  const fwd = `${a},${p},${q},${b}`;
+  const rev = `${b},${q},${p},${a}`;
+  return fwd < rev ? fwd : rev;
+};
+
 /**
  * Turbot-fish family: two strong links joined by a weak link; cells seeing
  * both free ends lose the digit. `variant` selects the HoDoKu classification:
  * skyscraper (two parallel line links), 2-string kite (row+col joined in a
  * box) or turbot fish (everything else, incl. box links).
  */
-export function findTurbotFamily(
+export function* iterTurbotFamily(
   g: Grid,
-  variant: 'SKYSCRAPER' | 'TWO_STRING_KITE' | 'TURBOT_FISH'
-): Step | null {
+  variant: 'SKYSCRAPER' | 'TWO_STRING_KITE' | 'TURBOT_FISH',
+  dedupeVariants = false
+): Generator<Step> {
   for (let d = 1; d <= 9; d++) {
     const links = strongLinks(g, d);
+    const seenChains = new Set<string>();
+    const specificChains = new Set<string>();
+    if (dedupeVariants && variant === 'TURBOT_FISH') {
+      for (let i = 0; i < links.length; i++) {
+        for (let j = i + 1; j < links.length; j++) {
+          const l1 = links[i];
+          const l2 = links[j];
+          const cells1 = [l1.a, l1.b];
+          const cells2 = [l2.a, l2.b];
+          if (cells1.some((c) => cells2.includes(c))) continue;
+          for (const p of cells1) {
+            for (const q of cells2) {
+              if (!sees(p, q)) continue;
+              const a = p === l1.a ? l1.b : l1.a;
+              const b = q === l2.a ? l2.b : l2.a;
+              if (a === b || sees(a, b)) continue;
+              if (
+                (l1.type === 'row' && l2.type === 'row') ||
+                (l1.type === 'col' && l2.type === 'col') ||
+                (((l1.type === 'row' && l2.type === 'col') ||
+                  (l1.type === 'col' && l2.type === 'row')) &&
+                  boxOf(p) === boxOf(q))
+              ) {
+                specificChains.add(canonicalChain4(a, p, q, b));
+              }
+            }
+          }
+        }
+      }
+    }
+
     for (let i = 0; i < links.length; i++) {
       for (let j = i + 1; j < links.length; j++) {
         const l1 = links[i];
@@ -82,6 +120,8 @@ export function findTurbotFamily(
               kind = 'TURBOT_FISH';
             }
             if (kind !== variant) continue;
+            const chainKey = canonicalChain4(a, p, q, b);
+            if (seenChains.has(chainKey) || specificChains.has(chainKey)) continue;
             const pattern = [...cells1, ...cells2];
             const elims: CellDigit[] = [];
             for (let c = 0; c < 81; c++) {
@@ -90,13 +130,14 @@ export function findTurbotFamily(
               if (sees(c, a) && sees(c, b)) elims.push({ cell: c, digit: d });
             }
             if (!elims.length) continue;
+            seenChains.add(chainKey);
             // the names stay English in every language (docs/translations.md)
             const names: Record<typeof variant, string> = {
               SKYSCRAPER: tr`Skyscraper`,
               TWO_STRING_KITE: tr`2-String Kite`,
               TURBOT_FISH: tr`Turbot Fish`
             };
-            return {
+            yield {
               tech: variant,
               placements: [],
               eliminations: elims,
@@ -112,14 +153,21 @@ export function findTurbotFamily(
       }
     }
   }
-  return null;
+}
+
+export function findTurbotFamily(
+  g: Grid,
+  variant: 'SKYSCRAPER' | 'TWO_STRING_KITE' | 'TURBOT_FISH'
+): Step | null {
+  return iterTurbotFamily(g, variant, false).next().value ?? null;
 }
 
 /**
  * Empty Rectangle: in a box all candidates of a digit lie on one row+column
  * cross; combined with a conjugate pair in a line, one candidate falls.
  */
-export function findEmptyRectangle(g: Grid): Step | null {
+export function* iterEmptyRectangle(g: Grid): Generator<Step> {
+  const seen = new Set<string>();
   for (let d = 1; d <= 9; d++) {
     const mask = bit(d);
     for (let b = 0; b < 9; b++) {
@@ -149,7 +197,11 @@ export function findEmptyRectangle(g: Grid): Step | null {
             if (Math.floor(rowOf(other) / 3) === Math.floor(b / 3)) continue;
             const target = rowOf(other) * 9 + erCol;
             if (g.values[target] === 0 && g.cands[target] & mask) {
-              return erStep(g, d, b, boxCells, [inErRow, other], target, 'col');
+              const key = `${d}:${b}:${inErRow},${other}:${target}:col`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                yield erStep(g, d, b, boxCells, [inErRow, other], target, 'col');
+              }
             }
           }
           // conjugate pair in a row crossing the ER column
@@ -163,14 +215,21 @@ export function findEmptyRectangle(g: Grid): Step | null {
             if (Math.floor(colOf(other) / 3) === b % 3) continue;
             const target = erRow * 9 + colOf(other);
             if (g.values[target] === 0 && g.cands[target] & mask) {
-              return erStep(g, d, b, boxCells, [inErCol, other], target, 'row');
+              const key = `${d}:${b}:${inErCol},${other}:${target}:row`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                yield erStep(g, d, b, boxCells, [inErCol, other], target, 'row');
+              }
             }
           }
         }
       }
     }
   }
-  return null;
+}
+
+export function findEmptyRectangle(g: Grid): Step | null {
+  return iterEmptyRectangle(g).next().value ?? null;
 }
 
 /**
@@ -180,7 +239,7 @@ export function findEmptyRectangle(g: Grid): Step | null {
  * same with rows and columns swapped. The two descriptions say exactly that.
  */
 function erStep(
-  g: Grid,
+  _g: Grid,
   d: number,
   box: number,
   boxCells: number[],

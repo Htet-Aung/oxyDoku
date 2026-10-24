@@ -15,7 +15,7 @@ import { tr, joinAnd } from '../text';
  * If neither digit occurs, the argument runs both ways: the pair cells hold
  * opposite digits and both can be removed.
  */
-export function findChuteRemotePair(g: Grid): Step | null {
+export function* iterChuteRemotePair(g: Grid): Generator<Step> {
   const bivalue: number[] = [];
   for (let c = 0; c < 81; c++) {
     if (g.values[c] === 0 && popcount(g.cands[c]) === 2) bivalue.push(c);
@@ -79,7 +79,7 @@ export function findChuteRemotePair(g: Grid): Step | null {
             : horizontal
               ? tr`Chute Remote Pair: ${cellName(c1)} and ${cellName(c2)} both hold ${digits.join('')} in one chute; ${missing[0]} appears nowhere in ${cellNames(mini)}, so the chute's third box must place its ${missing[0]} in a row shared with a pair cell, forcing that cell to ${removed[0]}. One pair cell is therefore ${removed[0]}, so ${removed[0]} can be removed from cells seeing both pair cells.`
               : tr`Chute Remote Pair: ${cellName(c1)} and ${cellName(c2)} both hold ${digits.join('')} in one chute; ${missing[0]} appears nowhere in ${cellNames(mini)}, so the chute's third box must place its ${missing[0]} in a column shared with a pair cell, forcing that cell to ${removed[0]}. One pair cell is therefore ${removed[0]}, so ${removed[0]} can be removed from cells seeing both pair cells.`;
-        return {
+        yield {
           tech: 'CHUTE_REMOTE_PAIR',
           placements: [],
           eliminations: elims,
@@ -101,5 +101,8 @@ export function findChuteRemotePair(g: Grid): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findChuteRemotePair(g: Grid): Step | null {
+  return iterChuteRemotePair(g).next().value ?? null;
 }

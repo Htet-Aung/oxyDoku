@@ -32,6 +32,15 @@ import { useTelemetry } from './telemetry';
 import { justifyMove } from './pools';
 import { translator, msg } from '../content/i18n';
 import type { TextPosition } from '../content/textGrid';
+import {
+  parseAndValidatePositionImport,
+  validatePositionPayload,
+  type PositionImportPayload,
+  type PositionImportFidelity,
+  type PositionImportErrorCode,
+  type ValidatedPositionImport,
+  type InvalidPositionImport
+} from '../content/sudokuExchangeImport';
 
 export type EntryMode = 'digit' | 'corner' | 'center' | 'color';
 
@@ -359,6 +368,18 @@ interface GameStore {
   /** candidates the chain should remove (practice), and whether the board marks where to go next */
   chainGoal: CellDigit[] | null;
   chainSuggest: boolean;
+  /** validated external position waiting for confirmation before replacing an active game */
+  pendingPositionImport: ValidatedPositionImport | null;
+  /** fidelity of the most recently imported external position ('full' | 'grid-only' | null) */
+  lastImportFidelity: PositionImportFidelity | null;
+  importPositionPayload: (
+    rawOrPayload: string | PositionImportPayload,
+    options?: { force?: boolean }
+  ) =>
+    | { ok: true; status: 'imported' | 'pending-confirmation'; fidelity: PositionImportFidelity }
+    | { ok: false; reason: string; code: PositionImportErrorCode };
+  confirmPendingPositionImport: () => boolean;
+  dismissPendingPositionImport: () => void;
 
   startGame: (puzzle: string, score: number, level: Level, practiceTech?: Tech | null, dailyKey?: string) => void;
   /**
@@ -477,6 +498,40 @@ function recordWin(s: GameStore) {
   useTelemetry.getState().track('completed', s.info.level, Math.floor(s.elapsedMs() / 1000));
 }
 
+function applyValidatedPosition(res: ValidatedPositionImport) {
+  useGame.getState().startGame(res.puzzle, res.score, res.level);
+  const t = translator();
+  const cells = cloneCells(res.cells);
+  const manualMarks = hasManualMarks(cells);
+  const hasCenter = cells.some((c) => !c.value && c.center !== 0);
+  const autoCandidates = res.fidelity === 'grid-only' || !manualMarks;
+  const markContract: MarkContract =
+    res.fidelity === 'full'
+      ? hasCenter || markSlip(cells, res.solution) === -1
+        ? 'exhaustive'
+        : 'open'
+      : 'unknown';
+  useGame.setState((s) => ({
+    info: s.info && { ...s.info, fromPosition: true },
+    cells,
+    autoCandidates,
+    markContract,
+    assisted: autoCandidates,
+    pendingPositionImport: null,
+    lastImportFidelity: res.fidelity,
+    notice:
+      res.fidelity === 'full'
+        ? t(
+            'Full position imported from Sudoku Exchange (givens, entries and pencil marks preserved), HoDoKu rating {score} ({level})',
+            { score: res.score, level: t.level(res.level) }
+          )
+        : t(
+            'Grid imported from Sudoku Exchange (givens and entries preserved; candidates recalculated), HoDoKu rating {score} ({level})',
+            { score: res.score, level: t.level(res.level) }
+          )
+  }));
+}
+
 export const useGame = create<GameStore>()(
   persist(
     (set, get) => ({
@@ -520,6 +575,8 @@ export const useGame = create<GameStore>()(
       scanDoubts: [],
       chainGoal: null,
       chainSuggest: false,
+      pendingPositionImport: null,
+      lastImportFidelity: null,
 
       startGame: (puzzle, score, level, practiceTech = null, dailyKey) => {
         // a puzzle string may write its empty cells as zeros; the app
@@ -1702,6 +1759,46 @@ export const useGame = create<GameStore>()(
       },
 
       markAssisted: () => set({ assisted: true }),
+
+      importPositionPayload: (rawOrPayload, options) => {
+        const res =
+          typeof rawOrPayload === 'string'
+            ? parseAndValidatePositionImport(rawOrPayload)
+            : validatePositionPayload(rawOrPayload);
+        if (!res.ok) {
+          const t = translator();
+          let reason: string;
+          if (res.code === 'conflicting-entries') {
+            reason = t('Conflicting entries: two {digit}s share a row, column or box.', {
+              digit: res.detail?.digit ?? ''
+            });
+          } else if (res.code === 'given-mismatch') {
+            reason = t('Invalid position: an original given digit was altered or missing.');
+          } else if (res.code === 'invalid-puzzle') {
+            reason = t('That is not a valid puzzle.');
+          } else {
+            reason = t('The position payload could not be read or is incomplete.');
+          }
+          return { ok: false, reason, code: res.code };
+        }
+        const s = get();
+        const activeInProgress = !options?.force && (s.custom || (!!s.info && !s.won && playedOn(s)));
+        if (activeInProgress) {
+          set({ pendingPositionImport: res });
+          return { ok: true, status: 'pending-confirmation', fidelity: res.fidelity };
+        }
+        applyValidatedPosition(res);
+        return { ok: true, status: 'imported', fidelity: res.fidelity };
+      },
+
+      confirmPendingPositionImport: () => {
+        const pending = get().pendingPositionImport;
+        if (!pending) return false;
+        applyValidatedPosition(pending);
+        return true;
+      },
+
+      dismissPendingPositionImport: () => set({ pendingPositionImport: null }),
 
       showStep: (step) => set({ hint: step, hintStage: 'full', assisted: true }),
 

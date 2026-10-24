@@ -19,7 +19,11 @@ import { tr } from '../text';
  * strictly (beginning with a strong link), so any flaw can only occur where
  * the loop closes.
  */
-export function findXCycles(g: Grid, maxLen = 12): Step | null {
+export function* iterXCycles(
+  g: Grid,
+  maxLen = 12,
+  onBudgetHit?: () => void
+): Generator<Step> {
   for (let d = 1; d <= 9; d++) {
     const mask = bit(d);
     const cells: number[] = [];
@@ -38,12 +42,17 @@ export function findXCycles(g: Grid, maxLen = 12): Step | null {
     const isStrong = (a: number, b: number) => strong.get(a)!.includes(b);
 
     let budget = 30000; // expansion cap per digit, keeps the finder responsive
+    const seen = new Set<string>();
 
-    const dfs = (
+    function* dfs(
       path: number[],
       nextType: 'strong' | 'weak'
-    ): Step | null => {
-      if (budget-- <= 0 || path.length > maxLen) return null;
+    ): Generator<Step> {
+      if (budget-- <= 0) {
+        onBudgetHit?.();
+        return;
+      }
+      if (path.length > maxLen) return;
       const cur = path[path.length - 1];
       const start = path[0];
 
@@ -54,14 +63,28 @@ export function findXCycles(g: Grid, maxLen = 12): Step | null {
         if (!lastWasStrong && isStrong(cur, start)) {
           // weak entry into cur + strong closure: alternation holds at every
           // node except start, which carries two strong links -> Rule 2
-          const step = rule2(g, d, path);
-          if (step) return step;
+          const key = `r2:${start}`;
+          if (!seen.has(key)) {
+            const step = rule2(g, d, path);
+            if (step) {
+              seen.add(key);
+              yield step;
+            }
+          }
         }
         if (lastWasStrong && sees(cur, start) && path.length % 2 === 0) {
           // strong entry + weak closure completes perfect alternation ->
           // Rule 1 continuous loop
           const step = rule1(g, d, path);
-          if (step) return step;
+          if (step) {
+            const loopNodes = [...path].sort((a, b) => a - b).join(',');
+            const elimKey = step.eliminations.map((e) => e.cell).join(',');
+            const key = `r1:${loopNodes}:${elimKey}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              yield step;
+            }
+          }
         }
       }
 
@@ -71,23 +94,25 @@ export function findXCycles(g: Grid, maxLen = 12): Step | null {
           : cells.filter((c) => sees(c, cur));
       for (const next of nexts) {
         if (path.includes(next)) continue;
-        const res = dfs([...path, next], nextType === 'strong' ? 'weak' : 'strong');
-        if (res) return res;
+        yield* dfs([...path, next], nextType === 'strong' ? 'weak' : 'strong');
+        if (budget <= 0) return;
       }
-      return null;
-    };
+    }
 
     for (const start of cells) {
       if (strong.get(start)!.length === 0) continue;
-      const res = dfs([start], 'strong');
-      if (res) return res;
+      yield* dfs([start], 'strong');
+      if (budget <= 0) break;
     }
   }
-  return null;
+}
+
+export function findXCycles(g: Grid, maxLen = 12): Step | null {
+  return iterXCycles(g, maxLen).next().value ?? null;
 }
 
 /** Rule 2: the start node has two strong links — it must be the digit. */
-function rule2(g: Grid, d: number, path: number[]): Step | null {
+function rule2(_g: Grid, d: number, path: number[]): Step | null {
   const start = path[0];
   return {
     tech: 'X_CYCLES',

@@ -31,7 +31,12 @@ interface GNode {
   cells: number[];
 }
 
-export function findGroupedXCycles(g: Grid, maxLen = 10): Step | null {
+export function* iterGroupedXCycles(
+  g: Grid,
+  maxLen = 10,
+  requireGroup = false,
+  onBudgetHit?: () => void
+): Generator<Step> {
   for (let d = 1; d <= 9; d++) {
     const mask = bit(d);
     const has = (c: number) => g.values[c] === 0 && (g.cands[c] & mask) !== 0;
@@ -88,55 +93,80 @@ export function findGroupedXCycles(g: Grid, maxLen = 10): Step | null {
     if (!strong.size) continue;
 
     let budget = 25000;
+    const seen = new Set<string>();
     const pathHasCellOverlap = (path: number[], n: number) =>
       path.some((p) => !disjoint(nodes[p], nodes[n]));
 
-    const dfs = (
+    function* dfs(
       path: number[],
       nextType: 'strong' | 'weak',
       firstWeak: boolean
-    ): Step | null => {
-      if (budget-- <= 0 || path.length > maxLen) return null;
+    ): Generator<Step> {
+      if (budget-- <= 0) {
+        onBudgetHit?.();
+        return;
+      }
+      if (path.length > maxLen) return;
       const cur = path[path.length - 1];
       const start = path[0];
+      const hasGroup = !requireGroup || path.some((n) => nodes[n].cells.length > 1);
 
-      if (path.length >= 3) {
+      if (path.length >= 3 && hasGroup) {
         const lastWasStrong = nextType === 'weak';
         if (!firstWeak) {
           // rules 1 & 2 (first link strong)
           if (!lastWasStrong && strong.get(cur)?.has(start)) {
             const step = rule2(g, d, nodes, path);
-            if (step) return step;
+            if (step) {
+              const elimKey = step.eliminations.map((e) => e.cell).join(',');
+              const key = `r2:${start}:${elimKey}`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                yield step;
+              }
+            }
           }
           if (lastWasStrong && weakLinked(nodes[cur], nodes[start]) && path.length % 2 === 0) {
             const step = rule1(g, d, nodes, path);
-            if (step) return step;
+            if (step) {
+              const loopCells = [...new Set(path.flatMap((n) => nodes[n].cells))].sort((a, b) => a - b).join(',');
+              const elimKey = step.eliminations.map((e) => e.cell).join(',');
+              const key = `r1:${loopCells}:${elimKey}`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                yield step;
+              }
+            }
           }
         } else if (lastWasStrong && weakLinked(nodes[cur], nodes[start]) && path.length % 2 === 1) {
           // rule 3 (first link weak, weak closure): start node is false
           const startCells = nodes[start].cells;
           if (startCells.length >= 2) {
-            return {
-              tech: 'GROUPED_X_CYCLES',
-              labels: { primary: tr`the loop on ${d}, with grouped nodes` },
-              placements: [],
-              eliminations: startCells.map((cell) => ({ cell, digit: d })),
-              primary: path.flatMap((n) => nodes[n].cells.map((cell) => ({ cell, digit: d }))),
-              // rule 3 paths start with a WEAK link (inverted alternation)
-              // and also close weak
-              links: [
-                ...alternatingLinks(nodeCds(nodes, path, d)).map((l) => ({
-                  ...l,
-                  strong: !l.strong
-                })),
-                {
-                  from: nodes[path[path.length - 1]].cells.map((cell) => ({ cell, digit: d })),
-                  to: nodes[path[0]].cells.map((cell) => ({ cell, digit: d })),
-                  strong: false
-                }
-              ],
-              description: tr`Grouped X-Cycle on ${d}: the loop closes with two weak links at the group ${cellNames(startCells)}, so none of those cells can be ${d}.`
-            };
+            const key = `r3:${start}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              yield {
+                tech: 'GROUPED_X_CYCLES',
+                labels: { primary: tr`the loop on ${d}, with grouped nodes` },
+                placements: [],
+                eliminations: startCells.map((cell) => ({ cell, digit: d })),
+                primary: path.flatMap((n) => nodes[n].cells.map((cell) => ({ cell, digit: d }))),
+                // rule 3 paths start with a WEAK link (inverted alternation)
+                // and also close weak
+                links: [
+                  ...alternatingLinks(nodeCds(nodes, path, d)).map((l) => ({
+                    ...l,
+                    strong: !l.strong
+                  })),
+                  {
+                    from: nodes[path[path.length - 1]].cells.map((cell) => ({ cell, digit: d })),
+                    to: nodes[path[0]].cells.map((cell) => ({ cell, digit: d })),
+                    strong: false
+                  }
+                ],
+                description: tr`Grouped X-Cycle on ${d}: the loop closes with two weak links at the group ${cellNames(startCells)}, so none of those cells can be ${d}.`
+              };
+            }
           }
         }
       }
@@ -151,25 +181,27 @@ export function findGroupedXCycles(g: Grid, maxLen = 10): Step | null {
       }
       for (const next of nexts) {
         if (path.includes(next) || pathHasCellOverlap(path, next)) continue;
-        const res = dfs([...path, next], nextType === 'strong' ? 'weak' : 'strong', firstWeak);
-        if (res) return res;
+        yield* dfs([...path, next], nextType === 'strong' ? 'weak' : 'strong', firstWeak);
+        if (budget <= 0) return;
       }
-      return null;
-    };
+    }
 
     for (let start = 0; start < nodes.length; start++) {
       if (strong.has(start)) {
-        const res = dfs([start], 'strong', false);
-        if (res) return res;
+        yield* dfs([start], 'strong', false);
+        if (budget <= 0) break;
       }
       // rule 3 pays off only for groups (single cells are X-Chain territory)
       if (nodes[start].cells.length >= 2) {
-        const res = dfs([start], 'weak', true);
-        if (res) return res;
+        yield* dfs([start], 'weak', true);
+        if (budget <= 0) break;
       }
     }
   }
-  return null;
+}
+
+export function findGroupedXCycles(g: Grid, maxLen = 10): Step | null {
+  return iterGroupedXCycles(g, maxLen, false).next().value ?? null;
 }
 
 function rule2(g: Grid, d: number, nodes: GNode[], path: number[]): Step | null {

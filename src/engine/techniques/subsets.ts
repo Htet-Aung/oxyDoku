@@ -5,10 +5,7 @@ import {
   bit,
   digitsOf,
   popcount,
-  cellNames,
-  rowOf,
-  colOf,
-  boxOf
+  cellNames
 } from '../board';
 import { Step, CellDigit } from '../steps';
 import { Tech } from '../ratings';
@@ -62,20 +59,60 @@ function sharedUnits(cells: number[]): number[] {
 }
 
 /**
+ * Check that a naked subset is irreducible (not a smaller naked single/subset
+ * combined with unrelated cells in the same house).
+ */
+function isIrreducibleNakedSubset(g: Grid, combo: number[]): boolean {
+  for (let k = 1; k < combo.length; k++) {
+    for (const sub of combinations(combo, k)) {
+      let subMask = 0;
+      for (const c of sub) subMask |= g.cands[c];
+      if (popcount(subMask) <= k) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Check that a hidden subset is irreducible (not a smaller hidden single/subset
+ * combined with unrelated digits in the same house).
+ */
+function isIrreducibleHiddenSubset(g: Grid, empty: number[], digitCombo: number[]): boolean {
+  for (let k = 1; k < digitCombo.length; k++) {
+    for (const subDigits of combinations(digitCombo, k)) {
+      let subMask = 0;
+      for (const d of subDigits) subMask |= bit(d);
+      const subCells = empty.filter((c) => g.cands[c] & subMask);
+      if (subCells.length <= k) return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Naked subsets. `locked` selects the locked variant (subset lies in a
  * box/line intersection and eliminates in both units) — HoDoKu rates those
  * separately and earlier.
  */
-export function findNakedSubset(g: Grid, size: number, locked: boolean): Step | null {
+export function* iterNakedSubset(
+  g: Grid,
+  size: number,
+  locked: boolean,
+  irreducibleOnly = false
+): Generator<Step> {
+  const seenCombos = new Set<string>();
   for (let u = 0; u < 27; u++) {
     const empty = UNITS[u].filter(
       (c) => g.values[c] === 0 && popcount(g.cands[c]) <= size
     );
     if (empty.length < size) continue;
     for (const combo of combinations(empty, size)) {
+      const comboKey = combo.join(',');
+      if (seenCombos.has(comboKey)) continue;
       let mask = 0;
       for (const c of combo) mask |= g.cands[c];
       if (popcount(mask) !== size) continue;
+      if (irreducibleOnly && !isIrreducibleNakedSubset(g, combo)) continue;
       const units = sharedUnits(combo);
       // collect eliminations across all shared units
       const elims: CellDigit[] = [];
@@ -99,6 +136,7 @@ export function findNakedSubset(g: Grid, size: number, locked: boolean): Step | 
       if (!elims.length) continue;
       const isLocked = units.length >= 2 && unitsWithElims.size >= 2 && size <= 3;
       if (isLocked !== locked) continue;
+      seenCombos.add(comboKey);
       const tech: Tech = locked
         ? size === 2
           ? 'LOCKED_PAIR'
@@ -106,7 +144,7 @@ export function findNakedSubset(g: Grid, size: number, locked: boolean): Step | 
         : (`NAKED_${['', '', 'PAIR', 'TRIPLE', 'QUADRUPLE'][size]}` as Tech);
       const digits = digitsOf(mask);
       const houses = [...unitsWithElims].map(unitName);
-      return {
+      yield {
         tech,
         placements: [],
         eliminations: elims,
@@ -125,10 +163,17 @@ export function findNakedSubset(g: Grid, size: number, locked: boolean): Step | 
       };
     }
   }
-  return null;
 }
 
-export function findHiddenSubset(g: Grid, size: number): Step | null {
+export function findNakedSubset(g: Grid, size: number, locked: boolean): Step | null {
+  return iterNakedSubset(g, size, locked, false).next().value ?? null;
+}
+
+export function* iterHiddenSubset(
+  g: Grid,
+  size: number,
+  irreducibleOnly = false
+): Generator<Step> {
   for (let u = 0; u < 27; u++) {
     const empty = UNITS[u].filter((c) => g.values[c] === 0);
     if (empty.length <= size) continue; // otherwise it's a naked subset too
@@ -143,13 +188,14 @@ export function findHiddenSubset(g: Grid, size: number): Step | null {
       for (const d of digitCombo) dmask |= bit(d);
       const cells = empty.filter((c) => g.cands[c] & dmask);
       if (cells.length !== size) continue;
+      if (irreducibleOnly && !isIrreducibleHiddenSubset(g, empty, digitCombo)) continue;
       const elims: CellDigit[] = [];
       for (const c of cells) {
         for (const d of digitsOf(g.cands[c] & ~dmask)) elims.push({ cell: c, digit: d });
       }
       if (!elims.length) continue;
       const tech = `HIDDEN_${['', '', 'PAIR', 'TRIPLE', 'QUADRUPLE'][size]}` as Tech;
-      return {
+      yield {
         tech,
         placements: [],
         eliminations: elims,
@@ -164,5 +210,8 @@ export function findHiddenSubset(g: Grid, size: number): Step | null {
       };
     }
   }
-  return null;
+}
+
+export function findHiddenSubset(g: Grid, size: number): Step | null {
+  return iterHiddenSubset(g, size, false).next().value ?? null;
 }

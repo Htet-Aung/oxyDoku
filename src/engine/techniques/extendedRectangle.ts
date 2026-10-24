@@ -21,7 +21,7 @@ import { tr } from '../text';
  * - Type 2: the extras are a single digit z (in any number of cells) → some
  *   cell must take z; z is removed from outside cells seeing all z-cells.
  */
-export function findExtendedRectangle(g: Grid): Step | null {
+export function* iterExtendedRectangle(g: Grid): Generator<Step> {
   for (const columns of [true, false]) {
     for (let chute = 0; chute < 3; chute++) {
       // the two parallel lines within the chute (3 choose 2)
@@ -43,23 +43,26 @@ export function findExtendedRectangle(g: Grid): Step | null {
                 }
               }
               if (cells.some((c) => g.values[c] !== 0)) continue;
-              const step = checkFormation(g, cells);
-              if (step) return step;
+              yield* iterCheckFormation(g, cells);
             }
           }
         }
       }
     }
   }
-  return null;
 }
 
-function checkFormation(g: Grid, cells: number[]): Step | null {
+export function findExtendedRectangle(g: Grid): Step | null {
+  return iterExtendedRectangle(g).next().value ?? null;
+}
+
+function* iterCheckFormation(g: Grid, cells: number[]): Generator<Step> {
   let union = 0;
   for (const c of cells) union |= g.cands[c];
-  if (popcount(union) < 4) return null; // no extras -> nothing to conclude
+  if (popcount(union) < 4) return; // no extras -> nothing to conclude
 
   // Type 1: exactly one cell has candidates outside the trio of the other five
+  let foundType1 = false;
   for (const extrasCell of cells) {
     let trio = 0;
     for (const c of cells) if (c !== extrasCell) trio |= g.cands[c];
@@ -70,7 +73,8 @@ function checkFormation(g: Grid, cells: number[]): Step | null {
       digit
     }));
     if (!elims.length || !(g.cands[extrasCell] & ~trio)) continue;
-    return {
+    foundType1 = true;
+    yield {
       tech: 'EXTENDED_RECTANGLE',
       placements: [],
       eliminations: elims,
@@ -81,6 +85,7 @@ function checkFormation(g: Grid, cells: number[]): Step | null {
       description: tr`Extended Rectangle Type 1: ${cellNames(cells)} would form a deadly ${digitsOf(trio).join('')} loop; ${cellName(extrasCell)} must take one of its extra candidates.`
     };
   }
+  if (foundType1) return;
 
   // Type 2: the extras are one single digit z spread over 2+ cells
   for (const z of digitsOf(union)) {
@@ -96,7 +101,7 @@ function checkFormation(g: Grid, cells: number[]): Step | null {
       if (zCells.every((zc) => sees(c, zc))) elims.push({ cell: c, digit: z });
     }
     if (!elims.length) continue;
-    return {
+    yield {
       tech: 'EXTENDED_RECTANGLE',
       placements: [],
       eliminations: elims,
@@ -111,5 +116,4 @@ function checkFormation(g: Grid, cells: number[]): Step | null {
       description: tr`Extended Rectangle Type 2: to avoid a deadly ${digitsOf(trio).join('')} loop in ${cellNames(cells)}, one of ${cellNames(zCells)} must be ${z}, so ${z} is removed from cells seeing all of them.`
     };
   }
-  return null;
 }

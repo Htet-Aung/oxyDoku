@@ -1,4 +1,4 @@
-import { Grid, bit, digitsOf, popcount, rowOf, colOf, cellName, cellNames } from '../board';
+import { Grid, bit, digitsOf, popcount, cellName, cellNames } from '../board';
 import { Step, CellDigit } from '../steps';
 import { digitTemplates } from './templates';
 import { tr } from '../text';
@@ -44,11 +44,20 @@ export interface ProvenExocet {
  * the single-exocet finder); the double-exocet finder needs every proven
  * pattern regardless.
  */
-export function collectExocets(g: Grid, needElims: boolean): ProvenExocet[] {
+export function collectExocets(
+  g: Grid,
+  needElims: boolean,
+  onOverflow?: () => void
+): ProvenExocet[] {
   const out: ProvenExocet[] = [];
+  const seen = new Set<string>();
   const templateCache = new Map<number, number[][] | null>();
   const templatesOf = (d: number): number[][] | null => {
-    if (!templateCache.has(d)) templateCache.set(d, digitTemplates(g, d, 20000));
+    if (!templateCache.has(d)) {
+      const res = digitTemplates(g, d, 20000);
+      if (res === null) onOverflow?.();
+      templateCache.set(d, res);
+    }
     return templateCache.get(d)!;
   };
 
@@ -61,8 +70,10 @@ export function collectExocets(g: Grid, needElims: boolean): ProvenExocet[] {
         for (let baseBoxSlot = 0; baseBoxSlot < 3; baseBoxSlot++) {
           const mini = [0, 1, 2].map((k) => cellAt(baseLine, baseBoxSlot * 3 + k));
           for (let skip = 0; skip < 3; skip++) {
-            const B1 = mini[(skip + 1) % 3];
-            const B2 = mini[(skip + 2) % 3];
+            const bA = mini[(skip + 1) % 3];
+            const bB = mini[(skip + 2) % 3];
+            const B1 = Math.min(bA, bB);
+            const B2 = Math.max(bA, bB);
             if (g.values[B1] !== 0 || g.values[B2] !== 0) continue;
             if (popcount(g.cands[B1]) < 2 || popcount(g.cands[B2]) < 2) continue;
             const S = g.cands[B1] | g.cands[B2];
@@ -82,6 +93,10 @@ export function collectExocets(g: Grid, needElims: boolean): ProvenExocet[] {
                   for (let kb = 0; kb < 3; kb++) {
                     const T2 = cellAt(lineB, slotB * 3 + kb);
                     if (g.values[T2] !== 0 || !(g.cands[T2] & S)) continue;
+                    const tMin = Math.min(T1, T2);
+                    const tMax = Math.max(T1, T2);
+                    const key = `${rows}:${baseLine}:${S}:${B1},${B2}:${tMin},${tMax}`;
+                    if (seen.has(key)) continue;
 
                     if (needElims) {
                       const nonBaseInTargets =
@@ -112,13 +127,14 @@ export function collectExocets(g: Grid, needElims: boolean): ProvenExocet[] {
                     }
                     if (!proven) continue;
 
+                    seen.add(key);
                     out.push({
                       rows,
                       line: baseLine,
                       boxSlot: baseBoxSlot,
                       S,
                       base: [B1, B2],
-                      targets: [T1, T2]
+                      targets: [tMin, tMax]
                     });
                   }
                 }
@@ -132,8 +148,8 @@ export function collectExocets(g: Grid, needElims: boolean): ProvenExocet[] {
   return out;
 }
 
-export function findExocet(g: Grid): Step | null {
-  for (const ex of collectExocets(g, true)) {
+export function* iterExocet(g: Grid, onOverflow?: () => void): Generator<Step> {
+  for (const ex of collectExocets(g, true, onOverflow)) {
     const { S, base, targets } = ex;
     const elims: CellDigit[] = [];
     for (const T of targets) {
@@ -146,7 +162,7 @@ export function findExocet(g: Grid): Step | null {
       }
     }
     if (!elims.length) continue;
-    return {
+    yield {
       tech: 'EXOCET',
       placements: [],
       eliminations: elims,
@@ -163,7 +179,10 @@ export function findExocet(g: Grid): Step | null {
       description: tr`Exocet: base ${cellNames(base)} (${digitsOf(S).join('')}) with targets ${cellName(targets[0])} and ${cellName(targets[1])}: a complete placement analysis proves the base digits must land in the targets, so the targets keep only base candidates.`
     };
   }
-  return null;
+}
+
+export function findExocet(g: Grid): Step | null {
+  return iterExocet(g).next().value ?? null;
 }
 
 /**
@@ -173,8 +192,9 @@ export function findExocet(g: Grid): Step | null {
  * distinct digits — exactly S. Every other cell of that line therefore
  * holds a non-S digit: S falls from the rest of the line.
  */
-export function findDoubleExocet(g: Grid): Step | null {
-  const all = collectExocets(g, false);
+export function* iterDoubleExocet(g: Grid, onOverflow?: () => void): Generator<Step> {
+  const all = collectExocets(g, false, onOverflow);
+  const seen = new Set<string>();
   for (let i = 0; i < all.length; i++) {
     for (let j = i + 1; j < all.length; j++) {
       const a = all[i];
@@ -194,7 +214,11 @@ export function findDoubleExocet(g: Grid): Step | null {
         for (const d of digitsOf(g.cands[c] & a.S)) elims.push({ cell: c, digit: d });
       }
       if (!elims.length) continue;
-      return {
+      const sortedBases = [...baseCells].sort((x, y) => x - y);
+      const key = `${a.rows}:${a.line}:${a.S}:${sortedBases.join(',')}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      yield {
         tech: 'DOUBLE_EXOCET',
         placements: [],
         eliminations: elims,
@@ -208,5 +232,8 @@ export function findDoubleExocet(g: Grid): Step | null {
       };
     }
   }
-  return null;
+}
+
+export function findDoubleExocet(g: Grid): Step | null {
+  return iterDoubleExocet(g).next().value ?? null;
 }

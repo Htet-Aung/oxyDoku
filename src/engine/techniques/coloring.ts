@@ -94,23 +94,26 @@ function simpleColorsStep(
 
 /** Simple Colors: color wrap (same color twice in a unit) and color trap
  *  (uncolored cell sees both colors). */
-export function findSimpleColors(g: Grid): Step | null {
+export function* iterSimpleColors(g: Grid): Generator<Step> {
   for (let d = 1; d <= 9; d++) {
     const mask = bit(d);
     for (const cl of clusters(g, d)) {
+      const wrappedColors = new Set<number>();
       // color wrap
       for (let u = 0; u < 27; u++) {
         const colored = UNITS[u].filter((c) => cl.color.has(c));
         for (const col of [0, 1]) {
+          if (wrappedColors.has(col)) continue;
           const same = colored.filter((c) => cl.color.get(c) === col);
           if (same.length >= 2) {
+            wrappedColors.add(col);
             const elims: CellDigit[] = cl.cells
               .filter((c) => cl.color.get(c) === col)
               .map((cell) => ({ cell, digit: d }));
             const unit = unitName(u);
             const a = cellName(same[0]);
             const b = cellName(same[1]);
-            return simpleColorsStep(
+            yield simpleColorsStep(
               cl,
               d,
               elims,
@@ -156,7 +159,7 @@ export function findSimpleColors(g: Grid): Step | null {
         }
       }
       if (elims.length) {
-        return simpleColorsStep(
+        yield simpleColorsStep(
           cl,
           d,
           elims,
@@ -166,19 +169,24 @@ export function findSimpleColors(g: Grid): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findSimpleColors(g: Grid): Step | null {
+  return iterSimpleColors(g).next().value ?? null;
 }
 
 /** Multi Colors: interactions between two clusters of the same digit. */
-export function findMultiColors(g: Grid): Step | null {
+export function* iterMultiColors(g: Grid): Generator<Step> {
   for (let d = 1; d <= 9; d++) {
     const mask = bit(d);
     const cls = clusters(g, d);
+    const seen = new Set<string>();
     for (let i = 0; i < cls.length; i++) {
       for (let j = 0; j < cls.length; j++) {
         if (i === j) continue;
         const c1 = cls[i];
         const c2 = cls[j];
+        const pairKey = `${Math.min(i, j)}-${Math.max(i, j)}`;
         for (const colA of [0, 1]) {
           const aCells = c1.cells.filter((c) => c1.color.get(c) === colA);
           for (const colB of [0, 1]) {
@@ -220,30 +228,35 @@ export function findMultiColors(g: Grid): Step | null {
               if (bridgeA2 >= 0) break;
             }
             if (bridgeA2 >= 0) {
-              return {
-                tech: 'MULTI_COLORS',
-                placements: [],
-                eliminations: aCells.map((cell) => ({ cell, digit: d })),
-                primary: bCells.map((cell) => ({ cell, digit: d })),
-                secondary: bOther.map((cell) => ({ cell, digit: d })),
-                fins: aOther.map((cell) => ({ cell, digit: d })),
-                labels: {
-                  primary: tr`blue: one colour of the second cluster`,
-                  secondary: tr`gold: its partner colour`,
-                  fins: tr`purple: the partner colour of the red one, in the first cluster`
-                },
-                links: [
-                  ...treeLinks(c1, d),
-                  ...treeLinks(c2, d),
-                  bridge,
-                  {
-                    from: [{ cell: bridgeA2, digit: d }],
-                    to: [{ cell: bridgeB2, digit: d }],
-                    strong: false
-                  }
-                ],
-                description: tr`Multi Colors on ${d}: two conjugate-pair clusters of ${d}, one coloured blue and gold. If the red ${d}s were all true, ${cellName(bridgeA)} would kill the blue ${d} in ${cellName(bridgeB)}, making gold entirely true; but ${cellName(bridgeA2)} also sees the gold ${d} in ${cellName(bridgeB2)}. So the red colour is false and every purple ${d} (its partner colour) is true.`
-              };
+              const elimKey = `${pairKey}:r1:${i}:${colA}`;
+              if (!seen.has(elimKey)) {
+                seen.add(elimKey);
+                yield {
+                  tech: 'MULTI_COLORS',
+                  placements: [],
+                  eliminations: aCells.map((cell) => ({ cell, digit: d })),
+                  primary: bCells.map((cell) => ({ cell, digit: d })),
+                  secondary: bOther.map((cell) => ({ cell, digit: d })),
+                  fins: aOther.map((cell) => ({ cell, digit: d })),
+                  labels: {
+                    primary: tr`blue: one colour of the second cluster`,
+                    secondary: tr`gold: its partner colour`,
+                    fins: tr`purple: the partner colour of the red one, in the first cluster`
+                  },
+                  links: [
+                    ...treeLinks(c1, d),
+                    ...treeLinks(c2, d),
+                    bridge,
+                    {
+                      from: [{ cell: bridgeA2, digit: d }],
+                      to: [{ cell: bridgeB2, digit: d }],
+                      strong: false
+                    }
+                  ],
+                  description: tr`Multi Colors on ${d}: two conjugate-pair clusters of ${d}, one coloured blue and gold. If the red ${d}s were all true, ${cellName(bridgeA)} would kill the blue ${d} in ${cellName(bridgeB)}, making gold entirely true; but ${cellName(bridgeA2)} also sees the gold ${d} in ${cellName(bridgeB2)}. So the red colour is false and every purple ${d} (its partner colour) is true.`
+                };
+              }
+              continue;
             }
             // rule 2: colA and colB cannot both be true (the bridge cells see
             // each other), so at least one of their partner colours is
@@ -268,27 +281,34 @@ export function findMultiColors(g: Grid): Step | null {
               }
             }
             if (elims.length) {
-              const reason = why + (elims.length > 1 ? tr`; ${elims.length} ${d}s fall this way` : '');
-              return {
-                tech: 'MULTI_COLORS',
-                placements: [],
-                eliminations: elims,
-                primary: aOther.map((cell) => ({ cell, digit: d })),
-                secondary: bOther.map((cell) => ({ cell, digit: d })),
-                fins: aCells.concat(bCells).map((cell) => ({ cell, digit: d })),
-                labels: {
-                  primary: tr`blue: a colour of the first cluster`,
-                  secondary: tr`gold: a colour of the second cluster`,
-                  fins: tr`purple: the two colours that see each other across the bridge; at most one is true`
-                },
-                links: [...treeLinks(c1, d), ...treeLinks(c2, d), bridge, ...witnesses],
-                description: tr`Multi Colors on ${d}: two conjugate-pair clusters of ${d}. The purple ${d}s in ${cellName(bridgeA)} and ${cellName(bridgeB)} see each other (the dashed link), so they cannot both be true, and at least one of blue and gold is entirely true. ${reason}.`
-              };
+              const elimKey = `${pairKey}:r2:${elims.map((e) => e.cell).join(',')}`;
+              if (!seen.has(elimKey)) {
+                seen.add(elimKey);
+                const reason = why + (elims.length > 1 ? tr`; ${elims.length} ${d}s fall this way` : '');
+                yield {
+                  tech: 'MULTI_COLORS',
+                  placements: [],
+                  eliminations: elims,
+                  primary: aOther.map((cell) => ({ cell, digit: d })),
+                  secondary: bOther.map((cell) => ({ cell, digit: d })),
+                  fins: aCells.concat(bCells).map((cell) => ({ cell, digit: d })),
+                  labels: {
+                    primary: tr`blue: a colour of the first cluster`,
+                    secondary: tr`gold: a colour of the second cluster`,
+                    fins: tr`purple: the two colours that see each other across the bridge; at most one is true`
+                  },
+                  links: [...treeLinks(c1, d), ...treeLinks(c2, d), bridge, ...witnesses],
+                  description: tr`Multi Colors on ${d}: two conjugate-pair clusters of ${d}. The purple ${d}s in ${cellName(bridgeA)} and ${cellName(bridgeB)} see each other (the dashed link), so they cannot both be true, and at least one of blue and gold is entirely true. ${reason}.`
+                };
+              }
             }
           }
         }
       }
     }
   }
-  return null;
+}
+
+export function findMultiColors(g: Grid): Step | null {
+  return iterMultiColors(g).next().value ?? null;
 }

@@ -32,7 +32,42 @@ const bitsOf = (m: number): number[] => {
 };
 const popcount9 = (m: number): number => bitsOf(m).length;
 
-export function findBasicFish(g: Grid, size: number): Step | null {
+/**
+ * Check that a basic fish of size >= 3 does not contain a smaller basic fish
+ * on a proper subset of its base lines.
+ */
+function isIrreducibleBasicFish(positions: number[], baseLines: number[]): boolean {
+  for (let k = 2; k < baseLines.length; k++) {
+    for (const sub of combinations(baseLines, k)) {
+      let subCover = 0;
+      for (const l of sub) subCover |= positions[l];
+      if (popcount9(subCover) <= k) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Check that a finned/sashimi fish of size >= 3 does not contain a smaller
+ * finless fish on a proper subset of its base lines.
+ */
+function isIrreducibleFinnedFish(positions: number[], baseLines: number[], cover: number): boolean {
+  for (let k = 2; k < baseLines.length; k++) {
+    for (const sub of combinations(baseLines, k)) {
+      let subUnion = 0;
+      for (const l of sub) subUnion |= positions[l];
+      if (popcount9(subUnion) <= k) return false;
+      if ((subUnion & ~cover) === 0 && popcount9(subUnion & cover) <= k) return false;
+    }
+  }
+  return true;
+}
+
+export function* iterBasicFish(
+  g: Grid,
+  size: number,
+  irreducibleOnly = false
+): Generator<Step> {
   for (const rows of [true, false]) {
     for (let d = 1; d <= 9; d++) {
       const positions = linePositions(g, d, rows);
@@ -46,6 +81,7 @@ export function findBasicFish(g: Grid, size: number): Step | null {
         let cover = 0;
         for (const l of baseLines) cover |= positions[l];
         if (popcount9(cover) !== size) continue;
+        if (irreducibleOnly && size >= 3 && !isIrreducibleBasicFish(positions, baseLines)) continue;
         const elims: CellDigit[] = [];
         for (const pos of bitsOf(cover)) {
           for (let line = 0; line < 9; line++) {
@@ -62,7 +98,7 @@ export function findBasicFish(g: Grid, size: number): Step | null {
         const name = FISH_NAMES[size];
         const bases = baseLines.map((l) => l + 1).join(', ');
         const covers = bitsOf(cover).map((p) => p + 1).join(', ');
-        return {
+        yield {
           tech: FISH_NAMES[size].toUpperCase().replace('-', '_') as Tech,
           placements: [],
           eliminations: elims,
@@ -87,14 +123,22 @@ export function findBasicFish(g: Grid, size: number): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findBasicFish(g: Grid, size: number): Step | null {
+  return iterBasicFish(g, size, false).next().value ?? null;
 }
 
 /**
  * Finned/sashimi basic fish. All fins must share a box; eliminations are
  * restricted to cover cells inside the fin box.
  */
-export function findFinnedFish(g: Grid, size: number, sashimi: boolean): Step | null {
+export function* iterFinnedFish(
+  g: Grid,
+  size: number,
+  sashimi: boolean,
+  irreducibleOnly = false
+): Generator<Step> {
   for (const rows of [true, false]) {
     for (let d = 1; d <= 9; d++) {
       const positions = linePositions(g, d, rows);
@@ -112,6 +156,9 @@ export function findFinnedFish(g: Grid, size: number, sashimi: boolean): Step | 
         for (const coverPositions of combinations(unionPositions, size)) {
           let cover = 0;
           for (const p of coverPositions) cover |= 1 << p;
+          if (irreducibleOnly && size >= 3 && !isIrreducibleFinnedFish(positions, baseLines, cover)) {
+            continue;
+          }
           // fins: base candidates outside the cover set
           const finCells: number[] = [];
           let degenerate = false;
@@ -150,7 +197,7 @@ export function findFinnedFish(g: Grid, size: number, sashimi: boolean): Step | 
           const base = cellNames(baseCells);
           const fins = cellNames(finCells);
           const many = finCells.length > 1;
-          return {
+          yield {
             tech: `${prefix.toUpperCase()}_${FISH_NAMES[size].toUpperCase().replace('-', '_')}` as Tech,
             placements: [],
             eliminations: elims,
@@ -177,5 +224,8 @@ export function findFinnedFish(g: Grid, size: number, sashimi: boolean): Step | 
       }
     }
   }
-  return null;
+}
+
+export function findFinnedFish(g: Grid, size: number, sashimi: boolean): Step | null {
+  return iterFinnedFish(g, size, sashimi, false).next().value ?? null;
 }

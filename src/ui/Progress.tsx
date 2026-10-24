@@ -5,6 +5,7 @@
 import React from 'react';
 import { Modal } from './Dialogs';
 import { useStats, dailyStreak } from '../state/stats';
+import { usePractice, getStrugglingTechniques } from '../state/practiceStore';
 import { PATH, pathStatus, LEARNED_AT, PathRow } from '../content/path';
 import { LEVELS, Tech, Level } from '../engine/ratings';
 import { frequencyParts } from '../content/frequency';
@@ -49,6 +50,14 @@ export function ProgressDialog({
   const techs = useStats((s) => s.techs);
   const bands = useStats((s) => s.bands);
   const dailyDays = useStats((s) => s.dailyDays);
+  const practiceProgress = usePractice((s) => s.progress);
+  const trackingEnabled = usePractice((s) => s.trackingEnabled);
+  const setTrackingEnabled = usePractice((s) => s.setTrackingEnabled);
+  const clearProgress = usePractice((s) => s.clearProgress);
+  const struggling = getStrugglingTechniques(practiceProgress);
+  const totalAttempts = Object.values(practiceProgress).reduce((sum, p) => sum + (p?.attempts ?? 0), 0);
+  const totalSuccesses = Object.values(practiceProgress).reduce((sum, p) => sum + (p?.successes ?? 0), 0);
+  const successRate = totalAttempts > 0 ? Math.round((totalSuccesses / totalAttempts) * 100) : 0;
   const t = useT();
   // each band's lead, in the words the guide uses
   const bandWords = useBandWords();
@@ -157,6 +166,71 @@ export function ProgressDialog({
           </p>
         </>
       )}
+      <h4 className="setting-group">{t('Pattern Practice Progress')}</h4>
+      <p className="dialog-note">
+        {t('Track how comfortably you recognize patterns during practice. Entirely local, relaxed and optional; no speed pressure or timers.')}
+      </p>
+      <div className="practice-progress-box">
+        <div className="practice-stats-grid">
+          <div className="stat-card">
+            <span className="stat-num">{totalAttempts}</span>
+            <span className="stat-desc">{t('Exercises Attempted')}</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-num">{totalSuccesses}</span>
+            <span className="stat-desc">{t('Successfully Spotted')}</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-num">{successRate}%</span>
+            <span className="stat-desc">{t('Recognition Rate')}</span>
+          </div>
+        </div>
+
+        {struggling.length > 0 && (
+          <div className="practice-recommendations">
+            <strong>{t('Techniques to Strengthen')}</strong>
+            <p className="dialog-note">
+              {t('You asked for hints or needed multiple tries on these patterns:')}
+            </p>
+            <div className="struggling-chips">
+              {struggling.map((tech) => (
+                <div key={tech} className="struggling-chip">
+                  <span>{t.tech(tech)}</span>
+                  <button
+                    className="ghost mini"
+                    onClick={() => {
+                      onClose();
+                      onPractice(tech);
+                    }}
+                  >
+                    {t('Practice')}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="practice-progress-footer">
+          <label className="practice-toggle-label">
+            <input
+              type="checkbox"
+              checked={trackingEnabled}
+              onChange={(e) => setTrackingEnabled(e.target.checked)}
+            />
+            <span>{t('Track practice progress on this device')}</span>
+          </label>
+          {totalAttempts > 0 && (
+            <button
+              className="ghost mini"
+              onClick={clearProgress}
+              title={t('Clear all practice exercise history')}
+            >
+              {t('Clear history')}
+            </button>
+          )}
+        </div>
+      </div>
     </Modal>
   );
 }

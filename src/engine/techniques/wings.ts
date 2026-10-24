@@ -31,7 +31,7 @@ function collectZElims(
   return elims;
 }
 
-export function findXYWing(g: Grid): Step | null {
+export function* iterXYWing(g: Grid): Generator<Step> {
   const bivalue: number[] = [];
   for (let c = 0; c < 81; c++) {
     if (g.values[c] === 0 && popcount(g.cands[c]) === 2) bivalue.push(c);
@@ -48,7 +48,7 @@ export function findXYWing(g: Grid): Step | null {
         if (g.cands[w2] !== (bit(y) | bit(z))) continue;
         const elims = collectZElims(g, z, [w1, w2], [pivot, w1, w2]);
         if (!elims.length) continue;
-        return {
+        yield {
           tech: 'XY_WING',
           placements: [],
           eliminations: elims,
@@ -60,10 +60,13 @@ export function findXYWing(g: Grid): Step | null {
       }
     }
   }
-  return null;
 }
 
-export function findXYZWing(g: Grid): Step | null {
+export function findXYWing(g: Grid): Step | null {
+  return iterXYWing(g).next().value ?? null;
+}
+
+export function* iterXYZWing(g: Grid): Generator<Step> {
   for (let pivot = 0; pivot < 81; pivot++) {
     if (g.values[pivot] !== 0 || popcount(g.cands[pivot]) !== 3) continue;
     const pivotMask = g.cands[pivot];
@@ -81,7 +84,7 @@ export function findXYZWing(g: Grid): Step | null {
         const z = digitsOf(shared)[0];
         const elims = collectZElims(g, z, [pivot, wings[i], wings[j]], [pivot, wings[i], wings[j]]);
         if (!elims.length) continue;
-        return {
+        yield {
           tech: 'XYZ_WING',
           placements: [],
           eliminations: elims,
@@ -96,14 +99,18 @@ export function findXYZWing(g: Grid): Step | null {
       }
     }
   }
-  return null;
 }
 
-export function findWWing(g: Grid): Step | null {
+export function findXYZWing(g: Grid): Step | null {
+  return iterXYZWing(g).next().value ?? null;
+}
+
+export function* iterWWing(g: Grid): Generator<Step> {
   const bivalue: number[] = [];
   for (let c = 0; c < 81; c++) {
     if (g.values[c] === 0 && popcount(g.cands[c]) === 2) bivalue.push(c);
   }
+  const seen = new Set<string>();
   for (let i = 0; i < bivalue.length; i++) {
     for (let j = i + 1; j < bivalue.length; j++) {
       const A = bivalue[i];
@@ -121,9 +128,12 @@ export function findWWing(g: Grid): Step | null {
           const connects =
             (sees(e1, A) && sees(e2, B)) || (sees(e1, B) && sees(e2, A));
           if (!connects) continue;
+          const key = `${A},${B},${linkDigit},${Math.min(e1, e2)},${Math.max(e1, e2)}`;
+          if (seen.has(key)) continue;
           const elims = collectZElims(g, elimDigit, [A, B], [A, B, e1, e2]);
           if (!elims.length) continue;
-          return {
+          seen.add(key);
+          yield {
             tech: 'W_WING',
             placements: [],
             eliminations: elims,
@@ -163,5 +173,8 @@ export function findWWing(g: Grid): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findWWing(g: Grid): Step | null {
+  return iterWWing(g).next().value ?? null;
 }

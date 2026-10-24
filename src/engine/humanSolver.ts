@@ -276,3 +276,5 @@ export function ratePuzzle(
 
   return { score, level: levelOf(level, score), steps, techniques, solvable };
 }
+
+export * from './scanner';

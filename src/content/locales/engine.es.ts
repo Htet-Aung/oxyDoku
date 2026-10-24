@@ -310,7 +310,28 @@ const engine: EngineTable = {
   "Empty Rectangle on {0}: in {1} every {2} lies on one row and one column, and {3} are the only two places for {4} in their line. If {5} is {6}, {7} in its row is not. If not, {8} is {9}, so the box's {10} cannot share its row and must lie on the column through {11}, which again is not {12}. So {13} is removed from {14}.": "Empty Rectangle en el {0}: en la {1}, todos los {2} están en una fila y una columna, y {3} son los dos únicos sitios para el {4} en su línea. Si {5} es {6}, {7}, en su fila, no lo es. Si no, {8} es {9}, así que el {10} de la caja no puede compartir fila con ella y debe estar en la columna que pasa por {11}, que tampoco es {12}. Así que el {13} se elimina de {14}.",
   "the digits already in its row, column or box; its other candidates were ruled out earlier": "los números ya presentes en la fila, la columna o la caja de la casilla; sus demás candidatos se descartaron antes",
   " ({0} cells are narrowed to their blue and gold candidates this way)": " (de esta forma, {0} casillas se quedan solo con su candidato azul y su candidato dorado)",
-  "Pattern Overlay: the only complete placement possible for digit {0} uses {1}.": "Pattern Overlay: la única colocación completa posible para el {0} usa {1}."
+  "Pattern Overlay: the only complete placement possible for digit {0} uses {1}.": "Pattern Overlay: la única colocación completa posible para el {0} usa {1}.",
+  "Spot on! Valid {0}": "¡Exacto! {0} válido",
+  "You correctly recognized the {0} on this board. {1}": "Has reconocido correctamente el {0} en este tablero. {1}",
+  "Alternative Pattern Found: {0}": "Patrón alternativo encontrado: {0}",
+  "Excellent observation! You spotted a logically valid {0} on this position rather than the generator's initial target. Both are completely sound! {1}": "¡Excelente observación! Has encontrado un {0} lógicamente válido en esta posición en lugar del objetivo inicial del generador. ¡Ambos son totalmente sólidos! {1}",
+  "Right cells, check the deduction": "Celdas correctas, revisa la deducción",
+  "You have identified the correct pattern cells and digit! Now check which candidate digit gets placed or eliminated as a consequence.": "¡Has identificado las celdas y el dígito correctos del patrón! Ahora revisa qué candidato se coloca o se elimina como consecuencia.",
+  "Pattern cells spotted": "Celdas del patrón encontradas",
+  "You found the key cells forming the structure, but verify which digit or conjugate link is driving the elimination.": "Has encontrado las celdas clave de la estructura, pero verifica qué dígito o enlace conjugado impulsa la eliminación.",
+  "Correct digit, look for the structure": "Dígito correcto, busca la estructura",
+  "You are looking at the right digit! But look for the specific parallel lines or intersecting wing cells that lock the candidate.": "¡Estás mirando el dígito correcto! Pero busca las líneas paralelas específicas o las celdas de las alas que bloquean el candidato.",
+  "Not quite the pattern": "No coincide con el patrón",
+  "The selected cells and digit do not form a valid deduction in this position. Try using a progressive hint to narrow down the region.": "Las celdas y el dígito seleccionados no forman una deducción válida en esta posición. Prueba una pista progresiva para acotar la región.",
+  "Look closely at {0} for {1}. Examine how candidates for that digit are restricted or distributed there.": "Mira con atención en {0} el {1}. Examina cómo los candidatos de ese dígito están restringidos o distribuidos allí.",
+  "Look for an interaction involving {0}. Examine how candidates for that digit are restricted or distributed there.": "Busca una interacción relacionada con el {0}. Examina cómo los candidatos de ese dígito están restringidos o distribuidos allí.",
+  "Nudge": "Pista inicial",
+  "{0} ({1}): Look for {2}": "{0} ({1}): Busca {2}",
+  "Structure": "Estructura",
+  "Pattern Cells": "Celdas del patrón",
+  "Notice the highlighted cells forming the pattern. What candidate eliminations or placements must this force?": "Observa las celdas resaltadas que forman el patrón. ¿Qué eliminaciones o colocaciones de candidatos fuerza esto?",
+  "Complete Solution": "Solución completa"
+
 };
 
 export default engine;

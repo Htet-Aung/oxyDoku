@@ -25,6 +25,9 @@ import type { LearnString } from '../content/learnStrings';
 import { useT, msg } from '../content/i18n';
 import { HubTabs } from './HubTabs';
 import { useLearnText } from './useLearnText';
+import { getTechniqueGuide } from '../content/techniqueGuides';
+import { useSettings } from '../state/settings';
+import { getFamiliarity } from '../content/mastery';
 
 type Examples = Partial<Record<Tech, Example>>;
 
@@ -299,6 +302,9 @@ function TechniqueList({
   lt: LearnText;
 }) {
   const [examples, setExamples] = useState<Examples>(() => loadedExamples ?? {});
+  const t = useT();
+  const mastery = useSettings((s) => s.mastery);
+  const setTechniqueFamiliarity = useSettings((s) => s.setTechniqueFamiliarity);
   useEffect(() => {
     if (loadedExamples) return;
     let live = true;
@@ -420,6 +426,8 @@ function TechniqueList({
             const status = techStatus(tech);
             const needed = lt.frequency(tech);
             const aka = lt.techAka(tech);
+            const guide = getTechniqueGuide(tech);
+            const fam = getFamiliarity(mastery, tech);
             return (
               <details
                 key={tech}
@@ -434,6 +442,7 @@ function TechniqueList({
                     {lt.techName(tech)}
                   </span>
                   <span className={`level-badge level-${info.level.toLowerCase()}`}>{lt.level(info.level)}</span>
+                  <span className={`fam-badge fam-${fam}`}>{t(fam === 'known' ? 'Known' : fam === 'learning' ? 'Learning' : 'Unfamiliar')}</span>
                   <span className="learn-score" title={lt.s("Added to a puzzle's HoDoKu rating each time the solver needs this technique")}>
                     +{info.score}
                   </span>
@@ -462,6 +471,63 @@ function TechniqueList({
                   {examples[tech] && (open.has(tech) || (!!query && matches <= 3)) && (
                     <WorkedExample tech={tech} example={examples[tech]!} onOpen={onExample} lt={lt} />
                   )}
+                  {guide.structuralRoles && (
+                    <p>
+                      <span className="learn-label">{t('Structural logic:')}</span>
+                      <span> {guide.structuralRoles}</span>
+                    </p>
+                  )}
+                  {guide.affectedCandidates && (
+                    <p>
+                      <span className="learn-label">{t('Affected candidates:')}</span>
+                      <span> {guide.affectedCandidates}</span>
+                    </p>
+                  )}
+                  {guide.pitfalls && guide.pitfalls.length > 0 && (
+                    <div className="learn-guide-section">
+                      <span className="learn-label">{t('Common pitfalls & false friends:')}</span>
+                      <ul className="learn-pitfalls-list">
+                        {guide.pitfalls.map((p, idx) => (
+                          <li key={idx}>{p}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {guide.distinctions && (
+                    <p className="learn-aka">
+                      <span className="learn-label">{t('Distinctions & kin:')}</span>
+                      <span> {guide.distinctions}</span>
+                    </p>
+                  )}
+                  <div className="learn-mastery-bar">
+                    <span className="learn-mastery-label">{t('My familiarity:')}</span>
+                    <div className="segmented mastery-status-selector mini" role="radiogroup" aria-label={t('Familiarity for {tech}', { tech: t.tech(tech) })}>
+                      <button
+                        className={fam === 'known' ? 'active known' : ''}
+                        role="radio"
+                        aria-checked={fam === 'known'}
+                        onClick={() => setTechniqueFamiliarity(tech, 'known')}
+                      >
+                        {t('Known')}
+                      </button>
+                      <button
+                        className={fam === 'learning' ? 'active learning' : ''}
+                        role="radio"
+                        aria-checked={fam === 'learning'}
+                        onClick={() => setTechniqueFamiliarity(tech, 'learning')}
+                      >
+                        {t('Learning')}
+                      </button>
+                      <button
+                        className={fam === 'unfamiliar' ? 'active unfamiliar' : ''}
+                        role="radio"
+                        aria-checked={fam === 'unfamiliar'}
+                        onClick={() => setTechniqueFamiliarity(tech, 'unfamiliar')}
+                      >
+                        {t('Unfamiliar')}
+                      </button>
+                    </div>
+                  </div>
                   {needed && <p className="learn-aka">{lt.s('Needed in {freq} that sudokUI generates.', { freq: needed })}</p>}
                   {aka.length > 0 && <p className="learn-aka">{lt.s('Also called {list}.', { list: aka.join(', ') })}</p>}
                   {status && <p className="learn-aka">{lt.s(status.note as LearnString)}</p>}

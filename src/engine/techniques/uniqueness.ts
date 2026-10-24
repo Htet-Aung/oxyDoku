@@ -51,7 +51,7 @@ function* rectangles(g: Grid): Generator<Rect> {
   }
 }
 
-export function findUniqueness(g: Grid, type: 1 | 2 | 3 | 4 | 5 | 6): Step | null {
+export function* iterUniqueness(g: Grid, type: 1 | 2 | 3 | 4 | 5 | 6): Generator<Step> {
   for (const rect of rectangles(g)) {
     const { cells, x, y } = rect;
     const pairMask = bit(x) | bit(y);
@@ -59,18 +59,16 @@ export function findUniqueness(g: Grid, type: 1 | 2 | 3 | 4 | 5 | 6): Step | nul
     const extra = cells.filter((c) => g.cands[c] !== pairMask);
 
     if (type === 3 && exact.length === 2 && extra.length === 2) {
-      const step = uniqueness3(g, rect, pairMask, extra);
-      if (step) return step;
+      yield* iterUniqueness3(g, rect, pairMask, extra);
     }
 
     if (type === 5 && exact.length <= 2 && extra.length >= 2) {
       const step = uniqueness5(g, rect, pairMask, exact, extra);
-      if (step) return step;
+      if (step) yield step;
     }
 
     if (type === 6 && exact.length === 2 && extra.length === 2) {
-      const step = uniqueness6(g, rect, pairMask, exact, extra);
-      if (step) return step;
+      yield* iterUniqueness6(g, rect, pairMask, exact, extra);
     }
 
     if (type === 1 && exact.length === 3 && extra.length === 1) {
@@ -80,7 +78,7 @@ export function findUniqueness(g: Grid, type: 1 | 2 | 3 | 4 | 5 | 6): Step | nul
         digit
       }));
       if (elims.length) {
-        return {
+        yield {
           tech: 'UNIQUENESS_1',
           placements: [],
           eliminations: elims,
@@ -107,7 +105,7 @@ export function findUniqueness(g: Grid, type: 1 | 2 | 3 | 4 | 5 | 6): Step | nul
         if (sees(c, e1) && sees(c, e2)) elims.push({ cell: c, digit: z });
       }
       if (elims.length) {
-        return {
+        yield {
           tech: 'UNIQUENESS_2',
           placements: [],
           eliminations: elims,
@@ -151,7 +149,7 @@ export function findUniqueness(g: Grid, type: 1 | 2 | 3 | 4 | 5 | 6): Step | nul
           .filter((c) => g.cands[c] & bit(kill))
           .map((cell) => ({ cell, digit: kill }));
         if (elims.length) {
-          return {
+          yield {
             tech: 'UNIQUENESS_4',
             placements: [],
             eliminations: elims,
@@ -166,7 +164,10 @@ export function findUniqueness(g: Grid, type: 1 | 2 | 3 | 4 | 5 | 6): Step | nul
       }
     }
   }
-  return null;
+}
+
+export function findUniqueness(g: Grid, type: 1 | 2 | 3 | 4 | 5 | 6): Step | null {
+  return iterUniqueness(g, type).next().value ?? null;
 }
 
 /**
@@ -174,11 +175,17 @@ export function findUniqueness(g: Grid, type: 1 | 2 | 3 | 4 | 5 | 6): Step | nul
  * cells in a unit shared by both roofs it can complete a naked subset, whose
  * digits are then removed from the rest of that unit.
  */
-function uniqueness3(g: Grid, rect: Rect, pairMask: number, extra: number[]): Step | null {
+function* iterUniqueness3(
+  g: Grid,
+  rect: Rect,
+  pairMask: number,
+  extra: number[]
+): Generator<Step> {
   const [e1, e2] = extra;
   const E = (g.cands[e1] | g.cands[e2]) & ~pairMask;
-  if (popcount(E) < 2) return null;
+  if (popcount(E) < 2) return;
   const shared = CELL_UNITS[e1].filter((u) => CELL_UNITS[e2].includes(u));
+  const seen = new Set<string>();
   for (const u of shared) {
     const others = UNITS[u].filter(
       (c) => g.values[c] === 0 && !rect.cells.includes(c)
@@ -189,13 +196,39 @@ function uniqueness3(g: Grid, rect: Rect, pairMask: number, extra: number[]): St
         let mask = E;
         for (const c of S) mask |= g.cands[c];
         if (popcount(mask) !== k + 1) continue;
+        // Irreducibility: S must not contain a standalone naked subset T ⊆ S,
+        // nor a proper subset S' ⊂ S that already locks with the roof extras E.
+        let reducible = false;
+        const limit = 1 << S.length;
+        for (let sub = 1; sub < limit; sub++) {
+          let subSize = 0;
+          let subMask = 0;
+          for (let bitIdx = 0; bitIdx < S.length; bitIdx++) {
+            if (sub & (1 << bitIdx)) {
+              subSize++;
+              subMask |= g.cands[S[bitIdx]];
+            }
+          }
+          if (popcount(subMask) <= subSize) {
+            reducible = true;
+            break;
+          }
+          if (subSize < S.length && popcount(E | subMask) <= subSize + 1) {
+            reducible = true;
+            break;
+          }
+        }
+        if (reducible) continue;
         const elims: CellDigit[] = [];
         for (const c of others) {
           if (S.includes(c)) continue;
           for (const d of digitsOf(g.cands[c] & mask)) elims.push({ cell: c, digit: d });
         }
         if (!elims.length) continue;
-        return {
+        const key = `${S.join(',')}:${elims.map((e) => `${e.cell}-${e.digit}`).join(',')}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        yield {
           tech: 'UNIQUENESS_3',
           placements: [],
           eliminations: elims,
@@ -215,7 +248,6 @@ function uniqueness3(g: Grid, rect: Rect, pairMask: number, extra: number[]): St
       }
     }
   }
-  return null;
 }
 
 /** UR Type 5: three corners carry the same single extra digit z; one of them
@@ -261,15 +293,15 @@ function uniqueness5(
  * confined to the rectangle in both rows (or both columns), placing it in a
  * roof corner forces the deadly pattern, so it falls from both roof corners.
  */
-function uniqueness6(
+function* iterUniqueness6(
   g: Grid,
   rect: Rect,
-  pairMask: number,
+  _pairMask: number,
   exact: number[],
   extra: number[]
-): Step | null {
+): Generator<Step> {
   const [f1, f2] = exact;
-  if (rowOf(f1) === rowOf(f2) || colOf(f1) === colOf(f2)) return null; // diagonal only
+  if (rowOf(f1) === rowOf(f2) || colOf(f1) === colOf(f2)) return; // diagonal only
   const rows = [rowOf(rect.cells[0]), rowOf(rect.cells[2])];
   const cols = [colOf(rect.cells[0]), colOf(rect.cells[1])];
   for (const d of [rect.x, rect.y]) {
@@ -287,7 +319,7 @@ function uniqueness6(
       .filter((c) => g.cands[c] & bit(d))
       .map((cell) => ({ cell, digit: d }));
     if (!elims.length) continue;
-    return {
+    yield {
       tech: 'UNIQUENESS_6',
       placements: [],
       eliminations: elims,
@@ -305,14 +337,13 @@ function uniqueness6(
         : tr`Unique Rectangle Type 6: ${d} is confined to the rectangle in both columns; placing it in a roof corner would force the deadly pattern, so ${d} is removed from ${cellNames(extra)}.`
     };
   }
-  return null;
 }
 
 /**
  * Hidden Rectangle: one corner is bivalue {x,y}. If y is confined to the
  * rectangle in the opposite corner's row and column, that corner cannot be x.
  */
-export function findHiddenRectangle(g: Grid): Step | null {
+export function* iterHiddenRectangle(g: Grid): Generator<Step> {
   for (const rect of rectangles(g)) {
     const { cells, x, y } = rect;
     const pairMask = bit(x) | bit(y);
@@ -341,7 +372,7 @@ export function findHiddenRectangle(g: Grid): Step | null {
         );
         if (!rowConfined || !colConfined) continue;
         if (!(g.cands[B] & bit(weak))) continue;
-        return {
+        yield {
           tech: 'HIDDEN_RECTANGLE',
           placements: [],
           eliminations: [{ cell: B, digit: weak }],
@@ -359,14 +390,17 @@ export function findHiddenRectangle(g: Grid): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findHiddenRectangle(g: Grid): Step | null {
+  return iterHiddenRectangle(g).next().value ?? null;
 }
 
 /**
  * Avoidable Rectangles: solved, non-given cells must not complete an
  * interchangeable rectangle (the puzzle would not have been unique).
  */
-export function findAvoidableRectangle(g: Grid, type: 1 | 2): Step | null {
+export function* iterAvoidableRectangle(g: Grid, type: 1 | 2): Generator<Step> {
   for (let r1 = 0; r1 < 8; r1++) {
     for (let r2 = r1 + 1; r2 < 9; r2++) {
       const sameBand = Math.floor(r1 / 3) === Math.floor(r2 / 3);
@@ -388,7 +422,7 @@ export function findAvoidableRectangle(g: Grid, type: 1 | 2): Step | null {
             const a = g.values[D];
             if (g.values[adj[0]] !== g.values[adj[1]] || g.values[adj[0]] === a) continue;
             if (!(g.cands[U] & bit(a))) continue;
-            return {
+            yield {
               tech: 'AVOIDABLE_RECTANGLE_1',
               placements: [],
               eliminations: [{ cell: U, digit: a }],
@@ -423,7 +457,7 @@ export function findAvoidableRectangle(g: Grid, type: 1 | 2): Step | null {
               if (sees(c, u1) && sees(c, u2)) elims.push({ cell: c, digit: cDigit });
             }
             if (!elims.length) continue;
-            return {
+            yield {
               tech: 'AVOIDABLE_RECTANGLE_2',
               placements: [],
               eliminations: elims,
@@ -444,28 +478,31 @@ export function findAvoidableRectangle(g: Grid, type: 1 | 2): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findAvoidableRectangle(g: Grid, type: 1 | 2): Step | null {
+  return iterAvoidableRectangle(g, type).next().value ?? null;
 }
 
 /** BUG+1: if all cells were bivalue the puzzle would have two solutions;
  *  the single trivalue cell must take the digit occurring three times. */
-export function findBugPlus1(g: Grid): Step | null {
+export function* iterBugPlus1(g: Grid): Generator<Step> {
   let triCell = -1;
   for (let c = 0; c < 81; c++) {
     if (g.values[c] !== 0) continue;
     const n = popcount(g.cands[c]);
     if (n === 2) continue;
     if (n === 3 && triCell === -1) triCell = c;
-    else return null;
+    else return;
   }
-  if (triCell === -1) return null;
+  if (triCell === -1) return;
   for (const d of digitsOf(g.cands[triCell])) {
     const counts = CELL_UNITS[triCell].map(
       (u) =>
         UNITS[u].filter((c) => g.values[c] === 0 && g.cands[c] & bit(d)).length
     );
     if (counts.every((n) => n === 3)) {
-      return {
+      yield {
         tech: 'BUG_PLUS_1',
         placements: [{ cell: triCell, digit: d }],
         eliminations: [],
@@ -479,5 +516,8 @@ export function findBugPlus1(g: Grid): Step | null {
       };
     }
   }
-  return null;
+}
+
+export function findBugPlus1(g: Grid): Step | null {
+  return iterBugPlus1(g).next().value ?? null;
 }

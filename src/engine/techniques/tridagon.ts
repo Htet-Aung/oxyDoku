@@ -1,4 +1,4 @@
-import { Grid, bit, digitsOf, popcount, boxOf, sees, cellName, cellNames } from '../board';
+import { Grid, digitsOf, popcount, boxOf, sees, cellName, cellNames } from '../board';
 import { Step } from '../steps';
 import { combinations } from './subsets';
 import { tr } from '../text';
@@ -16,12 +16,16 @@ import { tr } from '../text';
  * extra candidates (the guardian), that cell must take an extra — the trio
  * digits fall from it.
  */
-export function findTridagon(g: Grid): Step | null {
+export function* iterTridagon(
+  g: Grid,
+  onBudgetHit?: () => void
+): Generator<Step> {
   // candidate trios: the exact candidate sets of 3-candidate cells
   const trios = new Set<number>();
   for (let c = 0; c < 81; c++) {
     if (g.values[c] === 0 && popcount(g.cands[c]) === 3) trios.add(g.cands[c]);
   }
+  const seen = new Set<string>();
 
   for (const T of trios) {
     const pure: number[][] = Array.from({ length: 9 }, () => []);
@@ -50,17 +54,23 @@ export function findTridagon(g: Grid): Step | null {
         for (let gi = 0; gi < 4; gi++) {
           if (!boxes.every((b, k) => pure[b].length >= (k === gi ? 2 : 3))) continue;
           for (const guardian of near[boxes[gi]]) {
-            const triples = boxes.map((b, k) =>
-              k === gi
-                ? combinations(pure[b], 2).slice(0, 12).map((pair) => [guardian, ...pair])
-                : combinations(pure[b], 3).slice(0, 12)
-            );
+            const triples = boxes.map((b, k) => {
+              const allCombos =
+                k === gi
+                  ? combinations(pure[b], 2).map((pair) => [guardian, ...pair])
+                  : combinations(pure[b], 3);
+              if (allCombos.length > 12) onBudgetHit?.();
+              return allCombos.slice(0, 12);
+            });
             let budget = 300;
             for (const t0 of triples[0]) {
               for (const t1 of triples[1]) {
                 for (const t2 of triples[2]) {
                   for (const t3 of triples[3]) {
-                    if (budget-- <= 0) break;
+                    if (budget-- <= 0) {
+                      onBudgetHit?.();
+                      break;
+                    }
                     const cells = [...t0, ...t1, ...t2, ...t3];
                     if (trioSatisfiable(cells)) continue;
                     // impossible with trio digits only -> the guardian must
@@ -70,10 +80,13 @@ export function findTridagon(g: Grid): Step | null {
                       digit
                     }));
                     if (!elims.length) continue;
+                    const key = `${T}:${guardian}:${[...cells].sort((a, b) => a - b).join(',')}`;
+                    if (seen.has(key)) continue;
+                    seen.add(key);
                     // the sentence names the digits that actually fall: a
                     // guardian may hold only two of the trio (never fewer)
                     const fallen = elims.map((e) => e.digit).join('/');
-                    return {
+                    yield {
                       tech: 'TRIDAGON',
                       placements: [],
                       eliminations: elims,
@@ -97,7 +110,10 @@ export function findTridagon(g: Grid): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findTridagon(g: Grid): Step | null {
+  return iterTridagon(g).next().value ?? null;
 }
 
 /** Can the cells all take (distinct-where-seeing) digits from a 3-digit trio? */

@@ -44,15 +44,38 @@ interface GNode {
 const nodeCds = (nodes: GNode[], path: number[]): CellDigit[][] =>
   path.map((n) => nodes[n].cells.map((cell) => ({ cell, digit: nodes[n].digit })));
 
+export function* iterGroupedAic(
+  g: Grid,
+  maxNodes = 10,
+  filter: 'both' | 'grouped' | 'als' = 'both',
+  onBudgetHit?: () => void
+): Generator<Step> {
+  yield* iterSearch(g, 'chain', maxNodes, filter, onBudgetHit);
+}
+
 export function findGroupedAic(g: Grid, maxNodes = 10): Step | null {
-  return search(g, 'chain', maxNodes);
+  return iterGroupedAic(g, maxNodes, 'both').next().value ?? null;
+}
+
+export function* iterGroupedNiceLoop(
+  g: Grid,
+  maxNodes = 10,
+  onBudgetHit?: () => void
+): Generator<Step> {
+  yield* iterSearch(g, 'loop', maxNodes, 'both', onBudgetHit);
 }
 
 export function findGroupedNiceLoop(g: Grid, maxNodes = 10): Step | null {
-  return search(g, 'loop', maxNodes);
+  return iterGroupedNiceLoop(g, maxNodes).next().value ?? null;
 }
 
-function search(g: Grid, mode: 'chain' | 'loop', maxNodes: number): Step | null {
+function* iterSearch(
+  g: Grid,
+  mode: 'chain' | 'loop',
+  maxNodes: number,
+  filter: 'both' | 'grouped' | 'als',
+  onBudgetHit?: () => void
+): Generator<Step> {
   // ---- nodes ----
   const nodes: GNode[] = [];
   const candId = new Map<number, number>(); // cell*9+digit-1 -> node id
@@ -84,7 +107,7 @@ function search(g: Grid, mode: 'chain' | 'loop', maxNodes: number): Step | null 
   // ALS digit-nodes (chain mode only): one node per digit of each ALS,
   // internally strong-linked pairwise
   const alsPairs: [number, number][] = [];
-  if (mode === 'chain') {
+  if (mode === 'chain' && filter !== 'grouped') {
     const alses = collectAls(g, 3, 90);
     for (let a = 0; a < alses.length; a++) {
       const ids: number[] = [];
@@ -99,7 +122,7 @@ function search(g: Grid, mode: 'chain' | 'loop', maxNodes: number): Step | null 
       }
     }
   }
-  if (firstGroup === nodes.length) return null; // no groups/ALS -> plain AIC covers it
+  if (firstGroup === nodes.length) return; // no groups/ALS -> plain AIC covers it
 
   const disjoint = (a: GNode, b: GNode) => !a.cells.some((c) => b.cells.includes(c));
   const sameDigitWeak = (a: GNode, b: GNode) =>
@@ -151,7 +174,7 @@ function search(g: Grid, mode: 'chain' | 'loop', maxNodes: number): Step | null 
       }
     }
   }
-  if (!strong.size) return null;
+  if (!strong.size) return;
 
   /** candidates conflicting with a node being true */
   const conflictsOf = (n: number): Set<number> => {
@@ -181,6 +204,7 @@ function search(g: Grid, mode: 'chain' | 'loop', maxNodes: number): Step | null 
     `${nodes[n].digit}@${nodes[n].cells.length === 1 ? cellName(nodes[n].cells[0]) : `[${cellNames(nodes[n].cells)}]`}`;
 
   let budget = 40000;
+  const seen = new Set<string>();
 
   const weakNbrs = (n: number): number[] => {
     const out: number[] = [];
@@ -194,13 +218,28 @@ function search(g: Grid, mode: 'chain' | 'loop', maxNodes: number): Step | null 
     if (!strong.has(start)) continue;
     const startConf = mode === 'chain' ? conflictsOf(start) : null;
 
-    const dfs = (path: number[], nextType: 'strong' | 'weak'): Step | null => {
-      if (budget-- <= 0 || path.length > maxNodes) return null;
+    function* dfs(path: number[], nextType: 'strong' | 'weak'): Generator<Step> {
+      if (budget-- <= 0) {
+        onBudgetHit?.();
+        return;
+      }
+      if (path.length > maxNodes) return;
       const cur = path[path.length - 1];
       const groupInPath = path.some((p) => nodes[p].cells.length > 1);
 
       const alsInPath = path.some((p) => nodes[p].als !== undefined);
-      if (mode === 'chain' && nextType === 'weak' && path.length >= 4 && (groupInPath || alsInPath)) {
+      const matchesFilter =
+        filter === 'both' ||
+        (filter === 'grouped' && !alsInPath && groupInPath) ||
+        (filter === 'als' && alsInPath);
+
+      if (
+        mode === 'chain' &&
+        nextType === 'weak' &&
+        path.length >= 4 &&
+        (groupInPath || alsInPath) &&
+        matchesFilter
+      ) {
         const endConf = conflictsOf(cur);
         const elims: CellDigit[] = [];
         for (const id of startConf!) {
@@ -211,19 +250,27 @@ function search(g: Grid, mode: 'chain' | 'loop', maxNodes: number): Step | null 
           elims.push({ cell, digit });
         }
         if (elims.length) {
-          const chain = path.map(label).join(' → ');
-          return {
-            tech: alsInPath ? 'AIC_ALS' : 'AIC_GROUPED',
-            placements: [],
-            eliminations: elims,
-            primary: path.flatMap((n) =>
-              nodes[n].cells.map((cell) => ({ cell, digit: nodes[n].digit }))
-            ),
-            links: alternatingLinks(nodeCds(nodes, path)),
-            description: alsInPath
-              ? tr`AIC with ALS: ${chain}; at least one end is true, so candidates conflicting with both ends are removed.`
-              : tr`Grouped AIC: ${chain}; at least one end is true, so candidates conflicting with both ends are removed.`
-          };
+          const a = path[0];
+          const b = cur;
+          const pairKey = a < b ? `${a}-${b}` : `${b}-${a}`;
+          const elimKey = elims.map((e) => `${e.cell}:${e.digit}`).join(',');
+          const key = `chain:${alsInPath ? 'ALS' : 'GRP'}:${pairKey}:${elimKey}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            const chain = path.map(label).join(' → ');
+            yield {
+              tech: alsInPath ? 'AIC_ALS' : 'AIC_GROUPED',
+              placements: [],
+              eliminations: elims,
+              primary: path.flatMap((n) =>
+                nodes[n].cells.map((cell) => ({ cell, digit: nodes[n].digit }))
+              ),
+              links: alternatingLinks(nodeCds(nodes, path)),
+              description: alsInPath
+                ? tr`AIC with ALS: ${chain}; at least one end is true, so candidates conflicting with both ends are removed.`
+                : tr`Grouped AIC: ${chain}; at least one end is true, so candidates conflicting with both ends are removed.`
+            };
+          }
         }
       }
 
@@ -231,7 +278,14 @@ function search(g: Grid, mode: 'chain' | 'loop', maxNodes: number): Step | null 
         const lastWasStrong = nextType === 'weak';
         if (!lastWasStrong && (strong.get(cur) ?? []).includes(path[0])) {
           const step = loopRule2(g, nodes, path, label);
-          if (step) return step;
+          if (step) {
+            const elimKey = step.eliminations.map((e) => `${e.cell}:${e.digit}`).join(',');
+            const key = `r2:${path[0]}:${elimKey}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              yield step;
+            }
+          }
         }
         if (
           lastWasStrong &&
@@ -239,24 +293,29 @@ function search(g: Grid, mode: 'chain' | 'loop', maxNodes: number): Step | null 
           path.length % 2 === 0
         ) {
           const step = loopRule1(g, nodes, path, coveredByPath, label);
-          if (step) return step;
+          if (step) {
+            const loopKey = [...path].sort((a, b) => a - b).join(',');
+            const elimKey = step.eliminations.map((e) => `${e.cell}:${e.digit}`).join(',');
+            const key = `r1:${loopKey}:${elimKey}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              yield step;
+            }
+          }
         }
       }
 
       const nexts = nextType === 'strong' ? (strong.get(cur) ?? []) : weakNbrs(cur);
       for (const next of nexts) {
         if (path.includes(next) || overlapsPath(path, next)) continue;
-        const res = dfs([...path, next], nextType === 'strong' ? 'weak' : 'strong');
-        if (res) return res;
+        yield* dfs([...path, next], nextType === 'strong' ? 'weak' : 'strong');
+        if (budget <= 0) return;
       }
-      return null;
-    };
+    }
 
-    const res = dfs([start], 'strong');
-    if (res) return res;
-    if (budget <= 0) return null;
+    yield* dfs([start], 'strong');
+    if (budget <= 0) return;
   }
-  return null;
 }
 
 /** double-strong discontinuity at the start: the start node is TRUE */

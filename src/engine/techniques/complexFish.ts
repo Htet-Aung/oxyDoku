@@ -19,7 +19,11 @@ import { tr, unitName } from '../text';
  * found earlier as basic fish; a step is only reported when a box is
  * actually involved.
  */
-export function findFrankenFish(g: Grid, size: 2 | 3): Step | null {
+export function* iterFrankenFish(
+  g: Grid,
+  size: 2 | 3,
+  irreducibleOnly = false
+): Generator<Step> {
   const tech: Tech = size === 2 ? 'FRANKEN_X_WING' : 'FRANKEN_SWORDFISH';
 
   for (let d = 1; d <= 9; d++) {
@@ -28,6 +32,7 @@ export function findFrankenFish(g: Grid, size: 2 | 3): Step | null {
     const unitCells: number[][] = UNITS.map((u) =>
       u.filter((c) => g.values[c] === 0 && g.cands[c] & mask)
     );
+    const seen = new Set<string>();
 
     for (const rowsAsBase of [true, false]) {
       const baseUnits = [
@@ -80,14 +85,33 @@ export function findFrankenFish(g: Grid, size: 2 | 3): Step | null {
           // franken only: a box must take part somewhere
           if (![...base, ...cover].some((u) => u >= 18)) continue;
 
+          if (irreducibleOnly && size === 3) {
+            let reducible = false;
+            for (const subBase of combinations(base, 2)) {
+              const subBaseCells = subBase.flatMap((u) => unitCells[u]);
+              for (const subCover of combinations(cover, 2)) {
+                const subCoverSet = new Set(subCover.flatMap((u) => unitCells[u]));
+                if (subBaseCells.every((c) => subCoverSet.has(c))) {
+                  reducible = true;
+                  break;
+                }
+              }
+              if (reducible) break;
+            }
+            if (reducible) continue;
+          }
+
           const elims: CellDigit[] = [];
           for (const c of coverCells) {
             if (!baseCells.has(c)) elims.push({ cell: c, digit: d });
           }
           if (!elims.length) continue;
+          const key = `${base.join(',')}|${cover.join(',')}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
           // the name stays English in every language (docs/translations.md)
           const name = size === 2 ? tr`Franken X-Wing` : tr`Franken Swordfish`;
-          return {
+          yield {
             tech,
             placements: [],
             eliminations: elims,
@@ -106,5 +130,8 @@ export function findFrankenFish(g: Grid, size: 2 | 3): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findFrankenFish(g: Grid, size: 2 | 3): Step | null {
+  return iterFrankenFish(g, size, false).next().value ?? null;
 }

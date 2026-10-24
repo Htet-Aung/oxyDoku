@@ -27,13 +27,23 @@ import {
   VictoryDialog,
   SolutionPathDialog,
   ScanDialog,
-  ContractDialog
+  ContractDialog,
+  PositionImportConfirmDialog
 } from './Dialogs';
 import { SettingsDialog, InfoDialog } from './SettingsInfo';
+import { POSITION_IMPORT_HASH_PARAM } from '../content/sudokuExchangeImport';
 import { ReportDialog } from './ReportDialog';
 import type { ReportKind } from './report';
 import type { Step } from '../engine/steps';
 import { ProgressDialog } from './Progress';
+import { usePatternScanner } from '../state/scannerStore';
+import { PatternScannerPanel } from './PatternScannerPanel';
+import { PracticePanel } from './PracticePanel';
+import { usePractice } from '../state/practiceStore';
+import { isTechniqueVisibleInScan, INTERMEDIATE_TECHS } from '../content/mastery';
+import { findAllPatternInstances } from '../engine/scanner';
+import { engineGrid } from '../state/gameStore';
+import { MyTechniquesDialog } from './MyTechniquesDialog';
 import { Modal } from './Dialogs';
 import type { LearnTarget } from './Learn';
 
@@ -221,7 +231,7 @@ export default function App() {
   }, []);
 
   const [dialog, setDialog] = useState<
-    'none' | 'new' | 'practice' | 'io' | 'share' | 'settings' | 'info' | 'restart' | 'steps' | 'scan' | 'learn' | 'progress'
+    'none' | 'new' | 'practice' | 'io' | 'share' | 'settings' | 'info' | 'restart' | 'steps' | 'scan' | 'learn' | 'progress' | 'my-techniques'
   >('none');
   const [learnTarget, setLearnTarget] = useState<LearnTarget>({ tab: 'techniques' });
   // a technique the guide asked Scan to look for on the board
@@ -238,16 +248,53 @@ export default function App() {
     openLearn(target);
   };
   const restart = useGame((s) => s.restart);
+  const pendingPositionImport = useGame((s) => s.pendingPositionImport);
+  const scannerOpen = usePatternScanner((s) => s.isOpen);
+  const openScanner = usePatternScanner((s) => s.openScanner);
+  const closeScanner = usePatternScanner((s) => s.closeScanner);
   const [victoryDismissed, setVictoryDismissed] = useState(false);
   const [customError, setCustomError] = useState<string | null>(null);
   // the report dialog, with the hint it is about when it came from "Looks wrong?"
   const [report, setReport] = useState<{ kind: ReportKind; hint?: Step } | null>(null);
+  const practiceMode = usePractice((s) => s.mode);
+  const startPracticeMode = (tech: Tech | 'mixed') => {
+    setDialog('none');
+    if (tech === 'mixed') {
+      const mastery = useSettings.getState().mastery;
+      const eligible = PRACTICE_TECHS.filter((t) => isTechniqueVisibleInScan(mastery, t, false));
+      const pool = eligible.length > 0 ? eligible : INTERMEDIATE_TECHS.filter((t) => PRACTICE_TECHS.includes(t));
+      const chosen = pool[Math.floor(Math.random() * pool.length)];
+      usePractice.setState({ mode: 'mixed', mixedPool: pool });
+      start({ kind: 'tech', tech: chosen });
+    } else {
+      usePractice.setState({ mode: 'focused', targetTech: tech });
+      start({ kind: 'tech', tech });
+    }
+  };
+
+  useEffect(() => {
+    if (info?.practiceTech && practiceTarget) {
+      const g = engineGrid(useGame.getState().cells);
+      const scanRes = findAllPatternInstances(g, { useUniqueness: true, includeDisabled: true });
+      const currentMode = usePractice.getState().mode;
+      if (currentMode === 'mixed') {
+        const pool = usePractice.getState().mixedPool;
+        usePractice.getState().startMixedPractice(pool, practiceTarget, scanRes.instances.map((i) => i.step));
+      } else {
+        usePractice.getState().startFocusedPractice(info.practiceTech, practiceTarget, scanRes.instances.map((i) => i.step));
+      }
+    } else if (!info?.practiceTech) {
+      if (usePractice.getState().mode !== 'inactive') {
+        usePractice.getState().exitPractice();
+      }
+    }
+  }, [info?.practiceTech, practiceTarget]);
   // first visit only, and never over a shared or deep link: those visitors
   // arrived with a purpose
   const [welcome, setWelcome] = useState(
     () =>
       !localStorage.getItem('sudokui-welcomed') &&
-      !window.location.hash.match(/(^#|&)(p=|s=|learn=|practice=|daily)/) &&
+      !window.location.hash.match(/(^#|&)(p=|s=|import-position=|learn=|practice=|daily|scan|scanner|pattern-lab|my-techniques|techniques)/) &&
       !parseShareUrl(window.location) &&
       !parseDailyUrl(window.location)
   );
@@ -350,10 +397,21 @@ export default function App() {
     const params = new URLSearchParams(window.location.hash.slice(1));
     const learn = params.get('learn');
     if (learn) openLearn(parseLearnParam(learn));
+    if (params.has('scan') || params.has('scanner') || params.has('pattern-lab')) openScanner();
+    if (params.has('my-techniques') || params.has('techniques')) setDialog('my-techniques');
     const practice = techFromParam(params.get('practice') ?? '');
     if (practice && PRACTICE_TECHS.includes(practice)) {
       start({ kind: 'tech', tech: practice });
       return;
+    }
+    const importPos = params.get(POSITION_IMPORT_HASH_PARAM);
+    if (importPos !== null) {
+      const res = useGame.getState().importPositionPayload(importPos);
+      if (!res.ok) {
+        useGame.setState({ notice: res.reason });
+      } else {
+        return;
+      }
     }
     const sharedPosition = params.get('s');
     if (sharedPosition && useGame.getState().loadPosition(sharedPosition)) return;
@@ -423,6 +481,12 @@ export default function App() {
   useEffect(() => {
     const onHash = () => {
       const params = new URLSearchParams(window.location.hash.slice(1));
+      const importPos = params.get(POSITION_IMPORT_HASH_PARAM);
+      if (importPos !== null) {
+        const res = useGame.getState().importPositionPayload(importPos);
+        if (!res.ok) useGame.setState({ notice: res.reason });
+        return;
+      }
       const shared = (params.get('p') ?? '').replace(/[^0-9.]/g, '').replace(/0/g, '.');
       const g = useGame.getState();
       if (shared.length !== 81 || shared === g.info?.puzzle) return;
@@ -611,7 +675,10 @@ export default function App() {
           break;
         case 'KeyN': {
           const tech = useGame.getState().info?.practiceTech;
-          if (tech) start({ kind: 'tech', tech });
+          if (tech) {
+            if (practiceMode === 'mixed') startPracticeMode('mixed');
+            else startPracticeMode(tech);
+          }
           break;
         }
         case 'Space': {
@@ -815,6 +882,16 @@ export default function App() {
             >
               <span className="menu-icon">🎓</span>{t('Learn')}
             </button>
+            <button
+              className={scannerOpen ? 'active' : ''}
+              onClick={() => {
+                if (scannerOpen) closeScanner();
+                else openScanner();
+              }}
+              title={t('Pattern Scanner: scan the current position for all available patterns')}
+            >
+              <span className="menu-icon">🔬</span>{t('Patterns')}
+            </button>
             <button onClick={() => setDialog('io')}>
               <span className="menu-icon">⇅</span>{t('Import')}
             </button>
@@ -829,7 +906,19 @@ export default function App() {
             onShowSteps={info && !custom ? () => setDialog('steps') : undefined}
             onScan={info && !custom ? () => setDialog('scan') : undefined}
           />
-          {info?.practiceTech && !custom && (
+          {info?.practiceTech && !custom && practiceMode !== 'inactive' ? (
+            <PracticePanel
+              onNextPuzzle={() => {
+                if (practiceMode === 'mixed') {
+                  startPracticeMode('mixed');
+                } else {
+                  startPracticeMode(info.practiceTech!);
+                }
+              }}
+              onOpenLearn={(tech) => openLearn({ tab: 'techniques', tech })}
+              onOpenMastery={() => setDialog('my-techniques')}
+            />
+          ) : info?.practiceTech && !custom ? (
             <div className="practice-bar">
               <span className="practice-label">
                 {rich(t('Practicing {tech}'), { tech: <strong>{t.tech(info.practiceTech)}</strong> })}
@@ -848,13 +937,19 @@ export default function App() {
                       {t('Build it yourself')}
                     </button>
                   )}
-                <button onClick={() => start({ kind: 'tech', tech: info.practiceTech! })}>
+                <button onClick={() => startPracticeMode(info.practiceTech!)}>
                   {t('Next puzzle (N)')}
                 </button>
               </div>
             </div>
-          )}
-          {chain ? (
+          ) : null}
+{scannerOpen ? (
+            <PatternScannerPanel
+              onClose={closeScanner}
+              onLearn={(tech) => openLearn({ tab: 'techniques', tech })}
+              onOpenMastery={() => setDialog('my-techniques')}
+            />
+          ) : chain ? (
             <ChainPanel />
           ) : (
             <HintPanel onLearn={(tech) => openLearn({ tab: 'techniques', tech })} onReport={(hint) => setReport({ kind: 'hint', hint })} />
@@ -1001,8 +1096,9 @@ export default function App() {
           onClose={() => setDialog('none')}
           onStart={(tech) => {
             setDialog('none');
-            start({ kind: 'tech', tech });
+            startPracticeMode(tech);
           }}
+          onStartMixed={() => startPracticeMode('mixed')}
           onLearn={() => openLearn()}
           onPath={() => setDialog('progress')}
         />
@@ -1014,7 +1110,7 @@ export default function App() {
             onClose={() => setDialog('none')}
             onPractice={(tech) => {
               setDialog('none');
-              start({ kind: 'tech', tech });
+              startPracticeMode(tech);
             }}
             hub={{ onPractice: () => setDialog('practice'), onPath: () => setDialog('progress') }}
             onScan={
@@ -1099,7 +1195,18 @@ export default function App() {
           )}
         </Modal>
       )}
-      {dialog === 'settings' && <SettingsDialog onClose={() => setDialog('none')} />}
+      {dialog === 'settings' && (
+        <SettingsDialog
+          onClose={() => setDialog('none')}
+          onMyTechniques={() => setDialog('my-techniques')}
+        />
+      )}
+      {dialog === 'my-techniques' && (
+        <MyTechniquesDialog
+          onClose={() => setDialog('none')}
+          onLearn={(tech) => openLearn({ tab: 'techniques', tech })}
+        />
+      )}
       {dialog === 'info' && (
         <InfoDialog
           onClose={() => setDialog('none')}
@@ -1118,7 +1225,7 @@ export default function App() {
           onPracticeList={() => setDialog('practice')}
           onPractice={(tech) => {
             setDialog('none');
-            start({ kind: 'tech', tech });
+            startPracticeMode(tech);
           }}
         />
       )}
@@ -1160,7 +1267,7 @@ export default function App() {
             info?.practiceTech
               ? () => {
                   setVictoryDismissed(true);
-                  start({ kind: 'tech', tech: info.practiceTech! });
+                  startPracticeMode(practiceMode === 'mixed' ? 'mixed' : info.practiceTech!);
                 }
               : undefined
           }
@@ -1179,6 +1286,15 @@ export default function App() {
           (the Settings dialog's toggle asks it too) */}
       {contractPrompt && (
         <ContractDialog onAnswer={answerContract} onClose={dismissContractPrompt} forHighlight={contractFor === 'highlight'} />
+      )}
+      {pendingPositionImport && (
+        <PositionImportConfirmDialog
+          onClose={() => setDialog('none')}
+          onScan={() => {
+            setDialog('none');
+            openScanner();
+          }}
+        />
       )}
       <UpdateBar />
       {notice && (

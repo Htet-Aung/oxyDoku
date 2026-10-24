@@ -1,7 +1,6 @@
 import {
   Grid,
   UNITS,
-  CELL_UNITS,
   bit,
   digitsOf,
   popcount,
@@ -31,7 +30,7 @@ function bivalueCellLinks(g: Grid, path: number[], entry: number): ChainLink[] {
 
 /** Remote Pairs: chain of identical bivalue cells; both digits fall in cells
  *  seeing two opposite-parity chain cells. */
-export function findRemotePair(g: Grid): Step | null {
+export function* iterRemotePair(g: Grid): Generator<Step> {
   const byMask = new Map<number, number[]>();
   for (let c = 0; c < 81; c++) {
     if (g.values[c] === 0 && popcount(g.cands[c]) === 2) {
@@ -81,7 +80,7 @@ export function findRemotePair(g: Grid): Step | null {
       // order the component into a simple path for the arrows; when it
       // branches (rare), fall back to highlights only
       const path = orderAsPath(component, sees);
-      return {
+      yield {
         tech: 'REMOTE_PAIR',
         labels: { primary: tr`the chain of ${digits.join('')} pairs` },
         placements: [],
@@ -94,7 +93,10 @@ export function findRemotePair(g: Grid): Step | null {
       };
     }
   }
-  return null;
+}
+
+export function findRemotePair(g: Grid): Step | null {
+  return iterRemotePair(g).next().value ?? null;
 }
 
 /**
@@ -122,7 +124,7 @@ function orderAsPath(
 }
 
 /** X-Chain: alternating strong/weak links on one digit, strong at both ends. */
-export function findXChain(g: Grid, maxLen = 9): Step | null {
+export function* iterXChain(g: Grid, maxLen = 9): Generator<Step> {
   for (let d = 1; d <= 9; d++) {
     const mask = bit(d);
     const cells: number[] = [];
@@ -131,13 +133,14 @@ export function findXChain(g: Grid, maxLen = 9): Step | null {
     // strong partner map: for each cell, cells linked by a conjugate pair
     const strong = new Map<number, Set<number>>();
     for (const c of cells) strong.set(c, new Set());
-    for (const [ui, unit] of UNITS.entries()) {
+    for (const unit of UNITS) {
       const uc = unit.filter((c) => g.values[c] === 0 && g.cands[c] & mask);
       if (uc.length === 2) {
         strong.get(uc[0])!.add(uc[1]);
         strong.get(uc[1])!.add(uc[0]);
       }
     }
+    const seen = new Set<string>();
     // BFS over (cell, parity): parity 0 = next link must be strong
     for (const start of cells) {
       if (strong.get(start)!.size === 0) continue;
@@ -161,15 +164,21 @@ export function findXChain(g: Grid, maxLen = 9): Step | null {
               if (sees(c, start) && sees(c, next)) elims.push({ cell: c, digit: d });
             }
             if (elims.length) {
-              return {
-                tech: 'X_CHAIN',
-                labels: { primary: tr`the chain on ${d}` },
-                placements: [],
-                eliminations: elims,
-                primary: newPath.map((cell) => ({ cell, digit: d })),
-                links: alternatingLinks(newPath.map((cell) => [{ cell, digit: d }])),
-                description: tr`X-Chain on ${d}: ${newPath.map(cellName).join(' → ')}; one end must be ${d}, so ${d} is removed from cells seeing both ends.`
-              };
+              const pairKey = start < next ? `${start}-${next}` : `${next}-${start}`;
+              const elimKey = elims.map((e) => `${e.cell}:${e.digit}`).join(',');
+              const key = `${d}:${pairKey}:${elimKey}`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                yield {
+                  tech: 'X_CHAIN',
+                  labels: { primary: tr`the chain on ${d}` },
+                  placements: [],
+                  eliminations: elims,
+                  primary: newPath.map((cell) => ({ cell, digit: d })),
+                  links: alternatingLinks(newPath.map((cell) => [{ cell, digit: d }])),
+                  description: tr`X-Chain on ${d}: ${newPath.map(cellName).join(' → ')}; one end must be ${d}, so ${d} is removed from cells seeing both ends.`
+                };
+              }
             }
           }
           queue.push({ cell: next, parity: 1 - parity, path: newPath });
@@ -177,16 +186,20 @@ export function findXChain(g: Grid, maxLen = 9): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findXChain(g: Grid, maxLen = 9): Step | null {
+  return iterXChain(g, maxLen).next().value ?? null;
 }
 
 /** XY-Chain: chain of bivalue cells; both ends carry the elimination digit. */
-export function findXYChain(g: Grid, maxLen = 10): Step | null {
+export function* iterXYChain(g: Grid, maxLen = 10): Generator<Step> {
   const bivalue: number[] = [];
   for (let c = 0; c < 81; c++) {
     if (g.values[c] === 0 && popcount(g.cands[c]) === 2) bivalue.push(c);
   }
-  if (bivalue.length < 3) return null;
+  if (bivalue.length < 3) return;
+  const seen = new Set<string>();
   for (const start of bivalue) {
     for (const z of digitsOf(g.cands[start])) {
       // we assume start is NOT z -> start takes its other digit, which links onward
@@ -209,18 +222,24 @@ export function findXYChain(g: Grid, maxLen = 10): Step | null {
               if (sees(c, start) && sees(c, next)) elims.push({ cell: c, digit: z });
             }
             if (elims.length) {
-              return {
-                tech: 'XY_CHAIN',
-                labels: { primary: tr`the chain of bivalue cells` },
-                placements: [],
-                eliminations: elims,
-                primary: newPath.map((cell) => ({
-                  cell,
-                  digit: cell === start || cell === next ? z : 0
-                })).filter((cd) => cd.digit !== 0),
-                links: bivalueCellLinks(g, newPath, z),
-                description: tr`XY-Chain: ${newPath.map(cellName).join(' → ')}; whichever way the chain resolves, one end is ${z}, so ${z} is removed from cells seeing both ends.`
-              };
+              const pairKey = start < next ? `${start}-${next}` : `${next}-${start}`;
+              const elimKey = elims.map((e) => `${e.cell}:${e.digit}`).join(',');
+              const key = `${z}:${pairKey}:${elimKey}`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                yield {
+                  tech: 'XY_CHAIN',
+                  labels: { primary: tr`the chain of bivalue cells` },
+                  placements: [],
+                  eliminations: elims,
+                  primary: newPath.map((cell) => ({
+                    cell,
+                    digit: cell === start || cell === next ? z : 0
+                  })).filter((cd) => cd.digit !== 0),
+                  links: bivalueCellLinks(g, newPath, z),
+                  description: tr`XY-Chain: ${newPath.map(cellName).join(' → ')}; whichever way the chain resolves, one end is ${z}, so ${z} is removed from cells seeing both ends.`
+                };
+              }
             }
           }
           queue.push({ cell: next, linkDigit: exit, path: newPath });
@@ -228,5 +247,8 @@ export function findXYChain(g: Grid, maxLen = 10): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findXYChain(g: Grid, maxLen = 10): Step | null {
+  return iterXYChain(g, maxLen).next().value ?? null;
 }

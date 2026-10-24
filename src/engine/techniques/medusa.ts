@@ -73,9 +73,10 @@ function buildClusters(g: Grid): Cluster[] {
 }
 
 /** all six elimination rules from sudokuwiki.org/3D_Medusa */
-export function findMedusa3d(g: Grid): Step | null {
+export function* iterMedusa3d(g: Grid): Generator<Step> {
   for (const cl of clusters(g)) {
     const colored = (col: number) => cl.nodes.filter((n) => cl.color.get(n) === col);
+    const contradictedColors = new Set<number>();
 
     // Rules 1 & 2: a colour contradicts itself -> remove that whole colour
     for (const col of [0, 1]) {
@@ -89,8 +90,9 @@ export function findMedusa3d(g: Grid): Step | null {
       }
       for (const [cell, ds] of byCell) {
         if (ds.length >= 2) {
+          contradictedColors.add(col);
           const name = cellName(cell);
-          return medusaStep(
+          yield medusaStep(
             cl,
             nodes.map(cd),
             col === 0
@@ -106,17 +108,20 @@ export function findMedusa3d(g: Grid): Step | null {
               )
             ]
           );
+          break;
         }
       }
+      if (contradictedColors.has(col)) continue;
       // rule 2: same colour, same digit, twice in a unit
       for (let u = 0; u < 27; u++) {
         for (let d = 1; d <= 9; d++) {
           const twice = UNITS[u].filter((c) => cl.color.get(nid(c, d)) === col);
           if (twice.length >= 2) {
+            contradictedColors.add(col);
             const unit = unitName(u);
             const a = cellName(twice[0]);
             const b = cellName(twice[1]);
-            return medusaStep(
+            yield medusaStep(
               cl,
               nodes.map(cd),
               col === 0
@@ -132,8 +137,10 @@ export function findMedusa3d(g: Grid): Step | null {
                 )
               ]
             );
+            break;
           }
         }
+        if (contradictedColors.has(col)) break;
       }
     }
 
@@ -174,7 +181,7 @@ export function findMedusa3d(g: Grid): Step | null {
       const cellsHit = new Set(elims3.map((e) => e.cell)).size;
       // rule 1 found no cell with two candidates of one colour, so each cell
       // hit keeps exactly one blue and one gold candidate: narrowed, not solved
-      return medusaStep(
+      yield medusaStep(
         cl,
         elims3,
         why3 + (cellsHit > 1 ? tr` (${cellsHit} cells are narrowed to their blue and gold candidates this way)` : ''),
@@ -255,7 +262,7 @@ export function findMedusa3d(g: Grid): Step | null {
       }
     }
     if (elims45.length) {
-      return medusaStep(
+      yield medusaStep(
         cl,
         elims45,
         why45 + (elims45.length > 1 ? tr`; ${elims45.length} candidates fall this way` : ''),
@@ -266,6 +273,7 @@ export function findMedusa3d(g: Grid): Step | null {
     // Rule 6: an uncoloured cell where every candidate sees colour A ->
     // colour A would empty the cell, so colour A is false
     for (const A of [0, 1]) {
+      if (contradictedColors.has(A)) continue;
       for (let c = 0; c < 81; c++) {
         if (g.values[c] !== 0) continue;
         const ds = digitsOf(g.cands[c]);
@@ -275,6 +283,7 @@ export function findMedusa3d(g: Grid): Step | null {
           cl.nodes.some((n) => nDigit(n) === d && cl.color.get(n) === A && sees(c, nCell(n)))
         );
         if (emptied) {
+          contradictedColors.add(A);
           // one colour-A candidate per digit, the one that would remove it
           const target = cellName(c);
           const witnesses6 = ds.map((d, k) => {
@@ -293,7 +302,7 @@ export function findMedusa3d(g: Grid): Step | null {
             }
             return witness(cd(n), { cell: c, digit: d }, text);
           });
-          return medusaStep(
+          yield medusaStep(
             cl,
             colored(A).map(cd),
             A === 0
@@ -301,11 +310,15 @@ export function findMedusa3d(g: Grid): Step | null {
               : tr`If gold were true, ${target} would lose every one of its candidates (${ds.join(', ')}), so gold is false: all its candidates are removed (circled red) and every blue candidate is true`,
             witnesses6
           );
+          break;
         }
       }
     }
   }
-  return null;
+}
+
+export function findMedusa3d(g: Grid): Step | null {
+  return iterMedusa3d(g).next().value ?? null;
 }
 
 const clusters = buildClusters;

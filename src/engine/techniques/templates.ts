@@ -1,4 +1,4 @@
-import { Grid, bit, boxOf, cellName, digitsOf } from '../board';
+import { Grid, bit, boxOf, cellName } from '../board';
 import { Step, CellDigit } from '../steps';
 import { tr } from '../text';
 
@@ -64,7 +64,11 @@ export function digitTemplates(g: Grid, d: number, cap = 20000): number[][] | nu
   return overflow ? null : out;
 }
 
-export function findPatternOverlay(g: Grid, maxTemplates = 20000): Step | null {
+export function* iterPatternOverlay(
+  g: Grid,
+  maxTemplates = 20000,
+  onOverflow?: () => void
+): Generator<Step> {
   for (let d = 1; d <= 9; d++) {
     const mask = bit(d);
     // per row: the admissible cells for d
@@ -120,7 +124,11 @@ export function findPatternOverlay(g: Grid, maxTemplates = 20000): Step | null {
       }
     };
     rec(0, 0, 0);
-    if (overflow || count === 0) continue;
+    if (overflow) {
+      onOverflow?.();
+      continue;
+    }
+    if (count === 0) continue;
 
     const elims: CellDigit[] = [];
     const places: CellDigit[] = [];
@@ -131,7 +139,7 @@ export function findPatternOverlay(g: Grid, maxTemplates = 20000): Step | null {
       else if (isCand && inAll[i]) places.push({ cell: i, digit: d });
     }
     if (!elims.length && !places.length) continue;
-    return {
+    yield {
       tech: 'PATTERN_OVERLAY',
       placements: places,
       eliminations: elims,
@@ -150,5 +158,8 @@ export function findPatternOverlay(g: Grid, maxTemplates = 20000): Step | null {
         : tr`Pattern Overlay: of the ${count} complete placements possible for digit ${d}, none uses ${elims.map((e) => cellName(e.cell)).join(', ')}.`
     };
   }
-  return null;
+}
+
+export function findPatternOverlay(g: Grid, maxTemplates = 20000): Step | null {
+  return iterPatternOverlay(g, maxTemplates).next().value ?? null;
 }

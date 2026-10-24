@@ -6,7 +6,7 @@ import { tr, unitName } from '../text';
  * Locked Candidates Type 1 (Pointing): all candidates of a digit in a box
  * lie on one line -> eliminate from the rest of the line.
  */
-export function findLockedCandidates1(g: Grid): Step | null {
+export function* iterLockedCandidates1(g: Grid): Generator<Step> {
   for (let b = 0; b < 9; b++) {
     const boxCells = UNITS[18 + b];
     for (let d = 1; d <= 9; d++) {
@@ -23,7 +23,7 @@ export function findLockedCandidates1(g: Grid): Step | null {
         if (elims.length) {
           const onRow = lineOf === rowOf;
           const box = unitName(18 + b);
-          return {
+          yield {
             tech: 'LOCKED_CANDIDATES_1',
             placements: [],
             eliminations: elims,
@@ -49,14 +49,17 @@ export function findLockedCandidates1(g: Grid): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findLockedCandidates1(g: Grid): Step | null {
+  return iterLockedCandidates1(g).next().value ?? null;
 }
 
 /**
  * Locked Candidates Type 2 (Claiming): all candidates of a digit in a line
  * lie in one box -> eliminate from the rest of the box.
  */
-export function findLockedCandidates2(g: Grid): Step | null {
+export function* iterLockedCandidates2(g: Grid): Generator<Step> {
   for (let u = 0; u < 18; u++) {
     const lineCells = UNITS[u];
     for (let d = 1; d <= 9; d++) {
@@ -71,7 +74,7 @@ export function findLockedCandidates2(g: Grid): Step | null {
       if (elims.length) {
         const lineName = unitName(u);
         const box = unitName(18 + b);
-        return {
+        yield {
           tech: 'LOCKED_CANDIDATES_2',
           placements: [],
           eliminations: elims,
@@ -89,5 +92,8 @@ export function findLockedCandidates2(g: Grid): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findLockedCandidates2(g: Grid): Step | null {
+  return iterLockedCandidates2(g).next().value ?? null;
 }

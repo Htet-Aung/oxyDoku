@@ -333,6 +333,44 @@ meant to double as a course in advanced sudoku solving.
    snapshot in `tests/content.test.ts`. If it is another technique in
    disguise (a Hidden Single is a 1-fish), say so in `src/content/kin.ts`. Run
    `npx vite-node scripts/hunt-examples.ts` to find it a worked example.
+5. Register its multi-instance generator (`iterXxx`) in `SCAN_GEN_MAP` inside
+   `src/engine/scanner.ts`, add any search bounds to `BOUNDED_TECH_BOUNDS`,
+   and register its concept taxonomy and structured guide in
+   `src/content/concepts.ts` and `src/content/techniqueGuides.ts`.
+
+## Pattern Lab (Multi-Instance Scanner, My Techniques & Practice Lab)
+
+Pattern Lab extends `sudokUI` for personal Sudoku pattern discovery and mastery:
+
+- **All-Instances Pattern Scanner (`src/engine/scanner.ts`, `src/ui/PatternScannerPanel.tsx`):**
+  `findAllPatternInstances(g, options)` and `findPatternInstancesForTech(tech, g, options)`
+  scan an unmodified clone of the current board and enumerate every distinct
+  applicable instance across **76 implemented human techniques** (55 exhaustive
+  + 21 bounded; 3 catalogue-only entries `TWINNED_XY_CHAIN`, `SK_LOOP`, and
+  `FORCING_CHAIN` are explicitly marked unimplemented). Overlapping patterns
+  that prove the same elimination are preserved via `byConclusion`, while
+  symmetric chain/loop/subset traversals are canonically deduplicated. Search
+  bounds and truncation flags (`truncated`, `truncationReason`) are documented
+  in [docs/pattern-scanner-coverage.md](docs/pattern-scanner-coverage.md).
+- **My Techniques & Concept Taxonomy (`src/content/mastery.ts`, `src/content/concepts.ts`, `src/ui/MyTechniquesPanel.tsx`):**
+  Personal familiarity states (`known`, `learning`, `unfamiliar`), quick-start
+  presets, Discovery Mode, and 10 underlying logical concepts (`REASONING_CONCEPTS`).
+- **Exact Position Import from Sudoku Exchange (`src/content/sudokuExchangeImport.ts`):**
+  One-click `Send to Pattern Lab` bookmarklet and `#import-position=` payload
+  validator preserving givens, player-entered digits, corner/centre pencil
+  marks, exclusions, and cell colours.
+- **Interactive Practice Lab (`src/engine/progressiveHints.ts`, `src/engine/practiceVerifier.ts`, `src/state/practiceStore.ts`, `src/ui/PracticePanel.tsx`):**
+  6-part technique guides (`src/content/techniqueGuides.ts`), 4-stage
+  progressive hints, focused and mixed-technique practice, interactive
+  verification on the live board, and local-only non-competitive progress
+  tracking.
+- **Local Persistence & Architecture Docs:**
+  Settings and practice history are stored locally in `localStorage`
+  (`sudokui-settings-v1`, `sudokui-practice-v1`, `sudokui-game-v1`,
+  `sudokui-stats-v1`, `sudokui-pools-v12`) with automatic schema sanitization.
+  See [docs/pattern-lab-project-brief.md](docs/pattern-lab-project-brief.md) and
+  [docs/pattern-lab-roadmap.md](docs/pattern-lab-roadmap.md) for the full
+  specification and maintenance guide.
 
 ## Mobile builds
 

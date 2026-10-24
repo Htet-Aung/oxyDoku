@@ -1,4 +1,4 @@
-import { Grid, UNITS, bit, digitsOf, popcount, cellName, cellNames, boxOf } from '../board';
+import { Grid, UNITS, digitsOf, popcount, cellName, cellNames, boxOf } from '../board';
 import { Step, CellDigit } from '../steps';
 import { combinations } from './subsets';
 import { tr } from '../text';
@@ -17,7 +17,7 @@ import { tr } from '../text';
  * pattern -> removed from the rest of the line; digits of E (or
  * V \ cands(D)) are confined to the box -> removed from the rest of the box.
  */
-export function findSueDeCoq(g: Grid): Step | null {
+export function* iterSueDeCoq(g: Grid): Generator<Step> {
   for (let line = 0; line < 18; line++) {
     const lineCells = UNITS[line];
     // the three boxes this line crosses
@@ -62,7 +62,7 @@ export function findSueDeCoq(g: Grid): Step | null {
                   elims.push({ cell: c, digit: d });
               }
               if (!elims.length) continue;
-              return {
+              yield {
                 tech: 'SUE_DE_COQ',
                 placements: [],
                 eliminations: elims,
@@ -85,5 +85,8 @@ export function findSueDeCoq(g: Grid): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findSueDeCoq(g: Grid): Step | null {
+  return iterSueDeCoq(g).next().value ?? null;
 }

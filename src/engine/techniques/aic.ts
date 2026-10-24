@@ -1,4 +1,4 @@
-import { Grid, UNITS, bit, digitsOf, popcount, sees, cellName } from '../board';
+import { Grid, UNITS, bit, digitsOf, sees, cellName } from '../board';
 import { Step, CellDigit, alternatingLinks } from '../steps';
 import { tr } from '../text';
 
@@ -69,8 +69,16 @@ function conflictsOf(g: Grid, id: number): Set<number> {
   return out;
 }
 
+export function* iterAic(
+  g: Grid,
+  maxNodes = 12,
+  onBudgetHit?: () => void
+): Generator<Step> {
+  yield* iterSearchAic(g, 'chain', maxNodes, onBudgetHit);
+}
+
 export function findAic(g: Grid, maxNodes = 12): Step | null {
-  return searchAic(g, 'chain', maxNodes);
+  return iterAic(g, maxNodes).next().value ?? null;
 }
 
 /**
@@ -84,14 +92,28 @@ export function findAic(g: Grid, maxNodes = 12): Step | null {
  * (The double-weak discontinuity is the plain AIC elimination, found by the
  * chain search that runs at its own index.)
  */
-export function findNiceLoop(g: Grid, maxNodes = 12): Step | null {
-  return searchAic(g, 'loop', maxNodes);
+export function* iterNiceLoop(
+  g: Grid,
+  maxNodes = 12,
+  onBudgetHit?: () => void
+): Generator<Step> {
+  yield* iterSearchAic(g, 'loop', maxNodes, onBudgetHit);
 }
 
-function searchAic(g: Grid, mode: 'chain' | 'loop', maxNodes: number): Step | null {
+export function findNiceLoop(g: Grid, maxNodes = 12): Step | null {
+  return iterNiceLoop(g, maxNodes).next().value ?? null;
+}
+
+function* iterSearchAic(
+  g: Grid,
+  mode: 'chain' | 'loop',
+  maxNodes: number,
+  onBudgetHit?: () => void
+): Generator<Step> {
   const { strong, candidates } = buildGraph(g);
-  if (!strong.size) return null;
+  if (!strong.size) return;
   let budget = 60000;
+  const seen = new Set<string>();
 
   const weakLinked = (a: number, b: number) =>
     nCell(a) === nCell(b)
@@ -115,10 +137,14 @@ function searchAic(g: Grid, mode: 'chain' | 'loop', maxNodes: number): Step | nu
     if (!strong.has(start)) continue;
     const startConf = conflictsOf(g, start);
 
-    const dfs = (path: number[], nextType: 'strong' | 'weak'): Step | null => {
-      if (budget-- <= 0 || path.length > maxNodes) return null;
+    function* dfs(path: number[], nextType: 'strong' | 'weak'): Generator<Step> {
+      if (budget-- <= 0) {
+        onBudgetHit?.();
+        return;
+      }
+      if (path.length > maxNodes) return;
       const cur = path[path.length - 1];
-      const start = path[0];
+      const startNode = path[0];
 
       if (mode === 'chain' && nextType === 'weak' && path.length >= 4) {
         // a strong link just ended the chain (odd link count) -> evaluate
@@ -129,62 +155,77 @@ function searchAic(g: Grid, mode: 'chain' | 'loop', maxNodes: number): Step | nu
           elims.push({ cell: nCell(id), digit: nDigit(id) });
         }
         if (elims.length) {
-          const a = path[0];
+          const a = startNode;
           const b = cur;
-          return {
-            tech: 'AIC',
-            labels: { primary: tr`the chain` },
-            placements: [],
-            eliminations: elims,
-            primary: path.map((id) => ({ cell: nCell(id), digit: nDigit(id) })),
-            links: alternatingLinks(path.map((id) => [{ cell: nCell(id), digit: nDigit(id) }])),
-            description: tr`AIC: ${path
-              .map((id) => `${nDigit(id)}@${cellName(nCell(id))}`)
-              .join(' → ')}; at least one of ${nDigit(a)}@${cellName(nCell(a))} and ${nDigit(b)}@${cellName(nCell(b))} is true, so candidates conflicting with both are removed.`
-          };
+          const pairKey = a < b ? `${a}-${b}` : `${b}-${a}`;
+          const elimKey = elims.map((e) => `${e.cell}:${e.digit}`).join(',');
+          const key = `chain:${pairKey}:${elimKey}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            yield {
+              tech: 'AIC',
+              labels: { primary: tr`the chain` },
+              placements: [],
+              eliminations: elims,
+              primary: path.map((id) => ({ cell: nCell(id), digit: nDigit(id) })),
+              links: alternatingLinks(path.map((id) => [{ cell: nCell(id), digit: nDigit(id) }])),
+              description: tr`AIC: ${path
+                .map((id) => `${nDigit(id)}@${cellName(nCell(id))}`)
+                .join(' → ')}; at least one of ${nDigit(a)}@${cellName(nCell(a))} and ${nDigit(b)}@${cellName(nCell(b))} is true, so candidates conflicting with both are removed.`
+            };
+          }
         }
       }
 
       if (mode === 'loop' && path.length >= 4) {
         const lastWasStrong = nextType === 'weak';
-        if (!lastWasStrong && (strong.get(cur) ?? []).includes(start)) {
+        if (!lastWasStrong && (strong.get(cur) ?? []).includes(startNode)) {
           // weak entry + strong closure: single flaw at start -> start is TRUE
-          return {
-            tech: 'NICE_LOOP',
-            labels: { primary: tr`the loop` },
-            placements: [{ cell: nCell(start), digit: nDigit(start) }],
-            eliminations: [],
-            primary: path.map((id) => ({ cell: nCell(id), digit: nDigit(id) })),
-            links: alternatingLinks(
-              path.map((id) => [{ cell: nCell(id), digit: nDigit(id) }]),
-              'strong'
-            ),
-            description: tr`Nice Loop: the loop ${path
-              .map((id) => `${nDigit(id)}@${cellName(nCell(id))}`)
-              .join(' → ')} closes with two strong links at ${nDigit(start)}@${cellName(nCell(start))}; denying it forces it, so it is placed.`
-          };
+          const key = `r2:${startNode}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            yield {
+              tech: 'NICE_LOOP',
+              labels: { primary: tr`the loop` },
+              placements: [{ cell: nCell(startNode), digit: nDigit(startNode) }],
+              eliminations: [],
+              primary: path.map((id) => ({ cell: nCell(id), digit: nDigit(id) })),
+              links: alternatingLinks(
+                path.map((id) => [{ cell: nCell(id), digit: nDigit(id) }]),
+                'strong'
+              ),
+              description: tr`Nice Loop: the loop ${path
+                .map((id) => `${nDigit(id)}@${cellName(nCell(id))}`)
+                .join(' → ')} closes with two strong links at ${nDigit(startNode)}@${cellName(nCell(startNode))}; denying it forces it, so it is placed.`
+            };
+          }
         }
-        if (lastWasStrong && weakLinked(cur, start) && path.length % 2 === 0) {
+        if (lastWasStrong && weakLinked(cur, startNode) && path.length % 2 === 0) {
           // perfect alternation -> continuous loop eliminations
           const step = continuousLoop(g, path);
-          if (step) return step;
+          if (step) {
+            const loopKey = [...path].sort((a, b) => a - b).join(',');
+            const elimKey = step.eliminations.map((e) => `${e.cell}:${e.digit}`).join(',');
+            const key = `r1:${loopKey}:${elimKey}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              yield step;
+            }
+          }
         }
       }
 
       const nexts = nextType === 'strong' ? (strong.get(cur) ?? []) : weakNbrs(cur);
       for (const next of nexts) {
         if (path.includes(next)) continue;
-        const res = dfs([...path, next], nextType === 'strong' ? 'weak' : 'strong');
-        if (res) return res;
+        yield* dfs([...path, next], nextType === 'strong' ? 'weak' : 'strong');
+        if (budget <= 0) return;
       }
-      return null;
-    };
+    }
 
-    const res = dfs([start], 'strong');
-    if (res) return res;
-    if (budget <= 0) return null;
+    yield* dfs([start], 'strong');
+    if (budget <= 0) return;
   }
-  return null;
 }
 
 /** Rule-1 eliminations for a continuous multi-digit loop. */

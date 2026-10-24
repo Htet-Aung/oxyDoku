@@ -24,6 +24,7 @@ import { useT, translator, msg, rich, Translator } from '../content/i18n';
 import { shareUrl, techsWorthNaming, clockOf } from '../content/share';
 import { parsePencilGrid, looksLikeGrid, formatPencilGrid } from '../content/textGrid';
 import { puzzleFromLink } from '../content/importLinks';
+import { looksLikePositionImport } from '../content/sudokuExchangeImport';
 import type { LinkRefusal, LinkSource, VariantMark } from '../content/importLinks';
 import { fasterThan, dailyNumber, localDateKey, LATE_DAYS } from '../content/dailies';
 import { useDailyStats, SubmitOutcome } from '../state/dailyStats';
@@ -40,6 +41,7 @@ import { BAND_LEADS, BAND_NOTES, rangeOf } from '../content/rating';
 import { TECH_DOCS } from '../content/techniqueDocs';
 import { KIN } from '../content/kin';
 import { useSettings } from '../state/settings';
+import { getFamiliarity } from '../content/mastery';
 import type { Lang } from '../state/settings';
 
 /** what is being generated: a puzzle of a level or a narrower pick, or a technique's practice puzzle */
@@ -165,6 +167,7 @@ const modeLabel = (t: Translator, mode: SolveMode) => (MODE_LABELS.has(MODE_LABE
 export function NewGameDialog({
   onClose,
   onStart,
+
   onCustom,
   onDaily
 }: {
@@ -175,6 +178,7 @@ export function NewGameDialog({
 }) {
   const t = useT();
   const loc = useLearnLocale();
+  const mastery = useSettings((s) => s.mastery);
   return (
     <Modal title={t('New game')} onClose={onClose}>
       <div className="level-list">
@@ -228,11 +232,14 @@ export function NewGameDialog({
 export function PracticeDialog({
   onClose,
   onStart,
+
+  onStartMixed,
   onLearn,
   onPath
 }: {
   onClose: () => void;
   onStart: (tech: Tech) => void;
+  onStartMixed?: () => void;
   /** open the technique guide (every technique explained) */
   onLearn: () => void;
   /** open your path, the third part of Learn */
@@ -240,6 +247,7 @@ export function PracticeDialog({
 }) {
   const t = useT();
   const loc = useLearnLocale();
+  const mastery = useSettings((s) => s.mastery);
   const byCategory = techniquesByFamily();
   const shown = byCategory.flatMap(([, techs]) => techs);
   const playable = shown.filter((x) => PRACTICE_TECHS.includes(x));
@@ -269,6 +277,17 @@ export function PracticeDialog({
           <span className="tech-x">✗</span> {t('not implemented: the chain techniques already cover it')}
         </li>
       </ul>
+      <div className="practice-mixed-card">
+        <div className="mixed-card-text">
+          <strong>{t('Mixed-Technique Practice')}</strong>
+          <p>{t('Practice spotting patterns without knowing the technique in advance. Questions are drawn from your Known and Learning techniques.')}</p>
+        </div>
+        {onStartMixed && (
+          <button className="primary" onClick={onStartMixed}>
+            🎯 {t('Start Mixed Practice')}
+          </button>
+        )}
+      </div>
       <div className="practice-list">
         {byCategory.map(([cat, techs]) => (
           <div key={cat} className="practice-group">
@@ -278,6 +297,7 @@ export function PracticeDialog({
                 const info = TECHS[tech];
                 const name = t.tech(tech);
                 const ok = PRACTICE_TECHS.includes(tech);
+                const fam = getFamiliarity(mastery, tech);
                 // three honest reasons a technique can't be practised:
                 // ⚙ last resorts — the solver uses them, but there is no
                 //   pattern to SPOT (they try candidates and propagate), and
@@ -333,6 +353,11 @@ export function PracticeDialog({
                       <span className="tech-x">✗ </span>
                     )}
                     {name}
+                    {ok && fam !== 'unfamiliar' && (
+                      <span className={`practice-fam-badge fam-${fam}`} title={t(fam === 'known' ? 'Technique you know' : 'Technique you are learning')}>
+                        {fam === 'known' ? '✓' : '🎓'}
+                      </span>
+                    )}
                     <span className="tech-score">{info.score}</span>
                     {ok && poolSize(techKey(tech)) > 0 && (
                       <span className="pool-dot" title={t('cached puzzle ready')} />
@@ -866,6 +891,7 @@ function refusalText(r: LinkRefusal, t: Translator): string {
 export function ImportDialog({ onClose }: { onClose: () => void }) {
   const importPuzzle = useGame((s) => s.importPuzzle);
   const importText = useGame((s) => s.importText);
+  const importPositionPayload = useGame((s) => s.importPositionPayload);
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const t = useT();
@@ -874,6 +900,12 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     // a position drawn as text (src/content/textGrid.ts): a pencil-mark
     // grid, a HoDoKu library string, or the 81 characters with their
     // candidates; its candidates come along as centre marks
+    if (looksLikePositionImport(text)) {
+      const res = importPositionPayload(text, { force: true });
+      if (!res.ok) setError(res.reason);
+      else onClose();
+      return;
+    }
     const position = parsePencilGrid(text);
     if (position) {
       const reason = importText(position);
@@ -935,6 +967,68 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
  * the click only when they have not arrived yet. No puzzle, no rating: the
  * dialog passes none while the box is off.
  */
+export function PositionImportConfirmDialog({
+  onClose,
+  onScan
+}: {
+  onClose: () => void;
+  onScan: () => void;
+}) {
+  const pending = useGame((s) => s.pendingPositionImport);
+  const confirm = useGame((s) => s.confirmPendingPositionImport);
+  const dismiss = useGame((s) => s.dismissPendingPositionImport);
+  const t = useT();
+  if (!pending) return null;
+
+  const cancel = () => {
+    dismiss();
+    onClose();
+  };
+
+  return (
+    <Modal title={t('Import position from Sudoku Exchange?')} onClose={cancel}>
+      <p className="dialog-note">
+        {pending.fidelity === 'full'
+          ? t(
+              'Full position ready ({givens} givens, {entries} player entries, {marks} marked cells). Replacing your current game will discard your unsaved progress on this board.',
+              {
+                givens: pending.givenCount,
+                entries: pending.entryCount,
+                marks: pending.markedCellCount
+              }
+            )
+          : t(
+              'Grid-only position ready ({givens} givens, {entries} player entries; no pencil marks were present, so candidates will be recalculated). Replacing your current game will discard your unsaved progress on this board.',
+              {
+                givens: pending.givenCount,
+                entries: pending.entryCount
+              }
+            )}
+      </p>
+      <div className="hint-actions">
+        <button
+          onClick={() => {
+            if (confirm()) onScan();
+          }}
+        >
+          {t('Import & scan patterns')}
+        </button>
+        <button
+          className="ghost"
+          onClick={() => {
+            if (confirm()) onClose();
+          }}
+        >
+          {t('Import position')}
+        </button>
+        <button className="ghost" onClick={cancel}>
+          {t('Cancel')}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 function useShareTechs(puzzle: string | undefined): () => Tech[] {
   const [ready, setReady] = useState<{ puzzle: string; techs: Tech[] } | null>(null);
   // the puzzle's own techniques, by HoDoKu's path, whatever the player's hint setting

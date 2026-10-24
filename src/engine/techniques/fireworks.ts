@@ -19,7 +19,7 @@ import { tr } from '../text';
  * one of the three cells, so the cells hold exactly those digits — every
  * other candidate in A, B, C is eliminated.
  */
-export function findFireworks(g: Grid): Step | null {
+export function* iterFireworks(g: Grid): Generator<Step> {
   for (let b = 0; b < 9; b++) {
     for (const A of UNITS[18 + b]) {
       if (g.values[A] !== 0) continue;
@@ -56,7 +56,7 @@ export function findFireworks(g: Grid): Step | null {
             for (const d of digitsOf(g.cands[x] & ~dMask)) elims.push({ cell: x, digit: d });
           }
           if (!elims.length) continue;
-          return {
+          yield {
             tech: 'FIREWORKS',
             placements: [],
             eliminations: elims,
@@ -70,5 +70,8 @@ export function findFireworks(g: Grid): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findFireworks(g: Grid): Step | null {
+  return iterFireworks(g).next().value ?? null;
 }

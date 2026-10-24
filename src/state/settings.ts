@@ -1,7 +1,39 @@
 // User preferences, persisted to localStorage. Kept separate from the game
 // store so changing a setting never touches game state or undo history.
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware';
+import { Tech } from '../engine/ratings';
+import {
+  MasterySettings,
+  Familiarity,
+  DEFAULT_MASTERY_SETTINGS,
+  buildPresetStatus,
+  sanitizeMasterySettings
+} from '../content/mastery';
+
+const safeLocalStorage: StateStorage = {
+  getItem: (name) => {
+    try {
+      return typeof localStorage !== 'undefined' ? localStorage.getItem(name) : null;
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name, value) => {
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(name, value);
+    } catch {
+      // ignore storage errors in restricted or quota-full environments
+    }
+  },
+  removeItem: (name) => {
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(name);
+    } catch {
+      // ignore
+    }
+  }
+};
 
 export type MarkLayer = 'center' | 'corner';
 
@@ -94,6 +126,12 @@ interface Settings {
    *  be counted. Kept at the player's request, like every setting */
   dontCount: boolean;
 
+  mastery: MasterySettings;
+  setTechniqueFamiliarity: (tech: Tech, familiarity: Familiarity) => void;
+  setTechniqueFamiliarityBatch: (techs: Tech[], familiarity: Familiarity) => void;
+  applyMasteryPreset: (presetId: string) => void;
+  setIncludeLearning: (include: boolean) => void;
+
   toggleTheme: () => void;
   set: (p: Partial<Omit<Settings, 'toggleTheme' | 'set'>>) => void;
 }
@@ -126,6 +164,48 @@ export const useSettings = create<Settings>()(
       countPlays: false,
       countPlaysAsked: false,
       dontCount: false,
+      mastery: { ...DEFAULT_MASTERY_SETTINGS },
+      setTechniqueFamiliarity: (tech, familiarity) =>
+        set((s) => ({
+          mastery: {
+            ...s.mastery,
+            setupCompleted: true,
+            status: {
+              ...(s.mastery?.status ?? {}),
+              [tech]: familiarity
+            }
+          }
+        })),
+      setTechniqueFamiliarityBatch: (techs, familiarity) =>
+        set((s) => {
+          const newStatus = { ...(s.mastery?.status ?? {}) };
+          for (const t of techs) {
+            newStatus[t] = familiarity;
+          }
+          return {
+            mastery: {
+              ...s.mastery,
+              setupCompleted: true,
+              status: newStatus
+            }
+          };
+        }),
+      applyMasteryPreset: (presetId) =>
+        set((s) => ({
+          mastery: {
+            ...s.mastery,
+            setupCompleted: true,
+            activePreset: presetId,
+            status: buildPresetStatus(presetId)
+          }
+        })),
+      setIncludeLearning: (include) =>
+        set((s) => ({
+          mastery: {
+            ...s.mastery,
+            includeLearning: include
+          }
+        })),
       toggleTheme: () =>
         set((s) => ({
           theme:
@@ -139,7 +219,21 @@ export const useSettings = create<Settings>()(
         })),
       set: (p) => set(p)
     }),
-    { name: 'sudokui-settings-v1' }
+    {
+      name: 'sudokui-settings-v1',
+      storage: createJSONStorage(() => safeLocalStorage),
+      merge: (persisted, current) => {
+        if (!persisted || typeof persisted !== 'object' || Array.isArray(persisted)) {
+          return current;
+        }
+        const p = persisted as Partial<Settings>;
+        return {
+          ...current,
+          ...p,
+          mastery: sanitizeMasterySettings(p.mastery)
+        };
+      }
+    }
   )
 );
 

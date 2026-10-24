@@ -11,6 +11,7 @@ import { RATING_SUMMARY } from '../content/rating';
 import { useLearnLocale } from './useLearnLocale';
 import { PRIVACY_URL } from '../content/staticRoutes';
 import { PALETTE } from './Grid';
+import { countMasteryStats } from '../content/mastery';
 
 // The rating summary in the chosen language. English is at hand; a
 // translation comes from the guide's own locale file (useLearnLocale.ts),
@@ -53,9 +54,18 @@ function Toggle({
   );
 }
 
-export function SettingsDialog({ onClose }: { onClose: () => void }) {
+export function SettingsDialog({
+  onClose,
+  onMyTechniques
+}: {
+  onClose: () => void;
+  onMyTechniques?: () => void;
+}) {
   const s = useSettings();
+  const masteryStats = countMasteryStats(s.mastery);
   const t = useT();
+
+
 
   return (
     <Modal title={t('Settings')} onClose={onClose}>
@@ -255,6 +265,31 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         onChange={(v) => s.set({ showPoodle: v })}
       />
 
+      <h4 className="setting-group">{t('Pattern Lab & My Techniques')}</h4>
+      <div className="setting-row">
+        <div className="setting-text">
+          <span>{t('My Techniques')}</span>
+          <small>
+            {t('{known} known · {learning} learning · {unfamiliar} unfamiliar', {
+              known: masteryStats.knownCount,
+              learning: masteryStats.learningCount,
+              unfamiliar: masteryStats.unfamiliarCount
+            })}
+          </small>
+        </div>
+        {onMyTechniques && (
+          <button className="ghost" onClick={onMyTechniques}>
+            {t('Manage')} →
+          </button>
+        )}
+      </div>
+      <Toggle
+        label={t("Include 'Learning' techniques in normal scan")}
+        hint={t('When scanning normally, include techniques you are currently studying as well as those you know')}
+        value={s.mastery?.includeLearning !== false}
+        onChange={(v) => s.setIncludeLearning(v)}
+      />
+
       <h4 className="setting-group">{t('Assist')}</h4>
       <Toggle
         label={t('Ask before the first assist')}
@@ -395,8 +430,11 @@ export function InfoDialog({
   onLearn: (target: LearnTarget) => void;
   /** open the report dialog (src/ui/ReportDialog.tsx) */
   onFeedback?: () => void;
+
 }) {
   const t = useT();
+
+
   const ratingSummary = useRatingSummary();
   return (
     <Modal title={t('How to play sudokUI')} onClose={onClose}>

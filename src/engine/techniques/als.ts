@@ -9,7 +9,12 @@ export interface Als {
 }
 
 /** Almost Locked Sets: n cells in one unit with n+1 candidates. */
-export function collectAls(g: Grid, maxSize = 4, cap = 600): Als[] {
+export function collectAls(
+  g: Grid,
+  maxSize = 4,
+  cap = 600,
+  onCapHit?: () => void
+): Als[] {
   const out: Als[] = [];
   const seen = new Set<string>();
   for (const unit of UNITS) {
@@ -23,7 +28,10 @@ export function collectAls(g: Grid, maxSize = 4, cap = 600): Als[] {
         if (seen.has(key)) continue;
         seen.add(key);
         out.push({ cells: combo, mask });
-        if (out.length >= cap) return out;
+        if (out.length >= cap) {
+          onCapHit?.();
+          return out;
+        }
       }
     }
   }
@@ -118,12 +126,14 @@ function wxyzStep(g: Grid, A: Als, B: Als, x: number, z: number, elims: CellDigi
   };
 }
 
-function findAlsXzPairs(
+function* iterAlsXzPairs(
   g: Grid,
   accept: (A: Als, B: Als) => boolean,
-  tech: 'ALS_XZ' | 'WXYZ_WING'
-): Step | null {
-  const alses = collectAls(g);
+  tech: 'ALS_XZ' | 'WXYZ_WING',
+  onBudgetHit?: () => void
+): Generator<Step> {
+  const alses = collectAls(g, 4, 600, onBudgetHit);
+  const seen = new Set<string>();
   for (let i = 0; i < alses.length; i++) {
     for (let j = i + 1; j < alses.length; j++) {
       const A = alses[i];
@@ -137,28 +147,42 @@ function findAlsXzPairs(
         for (const z of digitsOf(common)) {
           if (z === x) continue;
           const step = alsXzStep(g, A, B, x, z, tech);
-          if (step) return step;
+          if (step) {
+            const key = `${i},${j}:${z}:${step.eliminations.map((e) => e.cell).join(',')}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              yield step;
+            }
+          }
         }
       }
     }
   }
-  return null;
 }
 
 /** WXYZ-Wing: the 4-cell/4-candidate special case of ALS-XZ (apex + 3-cell set). */
-export function findWxyzWing(g: Grid): Step | null {
-  return findAlsXzPairs(
+export function* iterWxyzWing(g: Grid, onBudgetHit?: () => void): Generator<Step> {
+  yield* iterAlsXzPairs(
     g,
     (A, B) =>
       Math.min(A.cells.length, B.cells.length) === 1 &&
       Math.max(A.cells.length, B.cells.length) === 3 &&
       popcount(A.mask | B.mask) === 4,
-    'WXYZ_WING'
+    'WXYZ_WING',
+    onBudgetHit
   );
 }
 
+export function findWxyzWing(g: Grid): Step | null {
+  return iterWxyzWing(g).next().value ?? null;
+}
+
+export function* iterAlsXz(g: Grid, onBudgetHit?: () => void): Generator<Step> {
+  yield* iterAlsXzPairs(g, () => true, 'ALS_XZ', onBudgetHit);
+}
+
 export function findAlsXz(g: Grid): Step | null {
-  return findAlsXzPairs(g, () => true, 'ALS_XZ');
+  return iterAlsXz(g).next().value ?? null;
 }
 
 /**
@@ -198,9 +222,10 @@ export function buildAlsLinks(g: Grid, alses: Als[]): Map<number, AlsLink[]> {
   return byAls;
 }
 
-export function findAlsXyWing(g: Grid): Step | null {
-  const alses = collectAls(g, 4, 400);
+export function* iterAlsXyWing(g: Grid, onBudgetHit?: () => void): Generator<Step> {
+  const alses = collectAls(g, 4, 400, onBudgetHit);
   const byAls = buildAlsLinks(g, alses);
+  const seen = new Set<string>();
 
   for (const [hinge, hingeLinks] of byAls) {
     for (let li = 0; li < hingeLinks.length; li++) {
@@ -229,7 +254,10 @@ export function findAlsXyWing(g: Grid): Step | null {
             if (zCells.every((zc) => sees(c, zc))) elims.push({ cell: c, digit: z });
           }
           if (!elims.length) continue;
-          return {
+          const key = `${hinge}:${Math.min(ai, bi)},${Math.max(ai, bi)}:${z}:${elims.map((e) => e.cell).join(',')}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          yield {
             tech: 'ALS_XY_WING',
             placements: [],
             eliminations: elims,
@@ -261,7 +289,10 @@ export function findAlsXyWing(g: Grid): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findAlsXyWing(g: Grid): Step | null {
+  return iterAlsXyWing(g).next().value ?? null;
 }
 
 /**
@@ -275,10 +306,11 @@ export function findAlsXyWing(g: Grid): Step | null {
  * placing z — which the assumed cell sees. Contradiction. (Three-set chains
  * are the XY-Wing itself, found earlier in the solve order.)
  */
-export function findAlsXyChain(g: Grid): Step | null {
-  const alses = collectAls(g, 4, 300);
+export function* iterAlsXyChain(g: Grid, onBudgetHit?: () => void): Generator<Step> {
+  const alses = collectAls(g, 4, 300, onBudgetHit);
   const byAls = buildAlsLinks(g, alses);
   let budget = 20000;
+  const seen = new Set<string>();
 
   for (const [bIdx, bLinks] of byAls) {
     for (const l1 of bLinks) {
@@ -289,7 +321,10 @@ export function findAlsXyChain(g: Grid): Step | null {
         if (cIdx === aIdx) continue;
         const cLinks = byAls.get(cIdx) ?? [];
         for (const l3 of cLinks) {
-          if (budget-- <= 0) return null;
+          if (budget-- <= 0) {
+            onBudgetHit?.();
+            return;
+          }
           if (l3.x === l2.x) continue;
           const dIdx = l3.a === cIdx ? l3.b : l3.a;
           if (dIdx === aIdx || dIdx === bIdx || dIdx === cIdx) continue;
@@ -312,7 +347,12 @@ export function findAlsXyChain(g: Grid): Step | null {
               if (zCells.every((zc) => sees(c, zc))) elims.push({ cell: c, digit: z });
             }
             if (!elims.length) continue;
-            return {
+            const fwd = `${aIdx},${bIdx},${cIdx},${dIdx}`;
+            const rev = `${dIdx},${cIdx},${bIdx},${aIdx}`;
+            const key = `${fwd < rev ? fwd : rev}:${z}:${elims.map((e) => e.cell).join(',')}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            yield {
               tech: 'ALS_XY_CHAIN',
               placements: [],
               eliminations: elims,
@@ -342,7 +382,10 @@ export function findAlsXyChain(g: Grid): Step | null {
       }
     }
   }
-  return null;
+}
+
+export function findAlsXyChain(g: Grid): Step | null {
+  return iterAlsXyChain(g).next().value ?? null;
 }
 
 /**
@@ -351,28 +394,29 @@ export function findAlsXyChain(g: Grid): Step | null {
  * becomes a locked set, so a digit z common to all petals is placed in one of
  * them; cells seeing every z of every petal lose z.
  */
-export function findDeathBlossom(g: Grid): Step | null {
-  const alses = collectAls(g);
+export function* iterDeathBlossom(g: Grid, onBudgetHit?: () => void): Generator<Step> {
+  const alses = collectAls(g, 4, 600, onBudgetHit);
   for (let stem = 0; stem < 81; stem++) {
     if (g.values[stem] !== 0) continue;
     const stemDigits = digitsOf(g.cands[stem]);
     if (stemDigits.length < 2 || stemDigits.length > 3) continue;
     // petal candidates per stem digit
-    const petals: Als[][] = stemDigits.map((p) =>
-      alses
-        .filter(
-          (A) =>
-            !A.cells.includes(stem) &&
-            A.mask & bit(p) &&
-            A.cells
-              .filter((c) => g.cands[c] & bit(p))
-              .every((c) => sees(c, stem))
-        )
-        .slice(0, 16)
-    );
+    const petals: Als[][] = stemDigits.map((p) => {
+      const matching = alses.filter(
+        (A) =>
+          !A.cells.includes(stem) &&
+          A.mask & bit(p) &&
+          A.cells
+            .filter((c) => g.cands[c] & bit(p))
+            .every((c) => sees(c, stem))
+      );
+      if (matching.length > 16) onBudgetHit?.();
+      return matching.slice(0, 16);
+    });
     if (petals.some((list) => list.length === 0)) continue;
+    const seen = new Set<string>();
 
-    const pick = (idx: number, chosen: Als[]): Step | null => {
+    function* pick(idx: number, chosen: Als[]): Generator<Step> {
       if (idx === stemDigits.length) {
         // digits common to all petals, excluding stem candidates
         let common = 0x1ff & ~g.cands[stem];
@@ -390,42 +434,46 @@ export function findDeathBlossom(g: Grid): Step | null {
             if (zCells.every((zc) => sees(c, zc))) elims.push({ cell: c, digit: z });
           }
           if (elims.length) {
-            return {
-              tech: 'DEATH_BLOSSOM',
-              placements: [],
-              eliminations: elims,
-              primary: digitsOf(g.cands[stem]).map((digit) => ({ cell: stem, digit })),
-              secondary: chosen.flatMap((A) =>
-                A.cells.flatMap((cell) =>
-                  digitsOf(g.cands[cell]).map((digit) => ({ cell, digit }))
-                )
-              ),
-              labels: {
-                primary: tr`the stem: each of its candidates leads to a petal`,
-                secondary: tr`the petals: one set per stem digit, all holding ${z}`
-              },
-              // each stem digit reaches the petal that holds it
-              links: stemDigits.map((p, i) => ({
-                from: [{ cell: stem, digit: p }],
-                to: chosen[i].cells.filter((c) => g.cands[c] & bit(p)).map((cell) => ({ cell, digit: p })),
-                strong: false
-              })),
-              description: tr`Death Blossom: stem ${cellName(stem)} links each of its candidates to a petal set; whichever digit the stem takes, some petal locks and places ${z}, so ${z} is removed from cells seeing every ${z} of all petals.`
-            };
+            const key = `${z}:${chosen.map((A) => A.cells.join(',')).join('|')}:${elims.map((e) => e.cell).join(',')}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              yield {
+                tech: 'DEATH_BLOSSOM',
+                placements: [],
+                eliminations: elims,
+                primary: digitsOf(g.cands[stem]).map((digit) => ({ cell: stem, digit })),
+                secondary: chosen.flatMap((A) =>
+                  A.cells.flatMap((cell) =>
+                    digitsOf(g.cands[cell]).map((digit) => ({ cell, digit }))
+                  )
+                ),
+                labels: {
+                  primary: tr`the stem: each of its candidates leads to a petal`,
+                  secondary: tr`the petals: one set per stem digit, all holding ${z}`
+                },
+                // each stem digit reaches the petal that holds it
+                links: stemDigits.map((p, i) => ({
+                  from: [{ cell: stem, digit: p }],
+                  to: chosen[i].cells.filter((c) => g.cands[c] & bit(p)).map((cell) => ({ cell, digit: p })),
+                  strong: false
+                })),
+                description: tr`Death Blossom: stem ${cellName(stem)} links each of its candidates to a petal set; whichever digit the stem takes, some petal locks and places ${z}, so ${z} is removed from cells seeing every ${z} of all petals.`
+              };
+            }
           }
         }
-        return null;
+        return;
       }
       for (const A of petals[idx]) {
         // petals must not overlap each other
         if (chosen.some((B) => B.cells.some((c) => A.cells.includes(c)))) continue;
-        const res = pick(idx + 1, [...chosen, A]);
-        if (res) return res;
+        yield* pick(idx + 1, [...chosen, A]);
       }
-      return null;
-    };
-    const step = pick(0, []);
-    if (step) return step;
+    }
+    yield* pick(0, []);
   }
-  return null;
+}
+
+export function findDeathBlossom(g: Grid): Step | null {
+  return iterDeathBlossom(g).next().value ?? null;
 }
