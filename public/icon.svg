@@ -1,17 +1,52 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#5b8fe0"/>
-      <stop offset="1" stop-color="#9b74d8"/>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e2238"/>
+      <stop offset="100%" stop-color="#10121d"/>
     </linearGradient>
+    <radialGradient id="glowGrad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#5b8fe0" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#5b8fe0" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
   </defs>
-  <rect width="512" height="512" rx="110" fill="url(#g)"/>
-  <g stroke="#ffffff" stroke-opacity="0.45" stroke-width="10">
-    <line x1="196" y1="116" x2="196" y2="396"/>
-    <line x1="316" y1="116" x2="316" y2="396"/>
-    <line x1="116" y1="196" x2="396" y2="196"/>
-    <line x1="116" y1="316" x2="396" y2="316"/>
+
+  <!-- Background Base -->
+  <rect width="512" height="512" rx="115" fill="url(#bgGrad)"/>
+  <rect width="512" height="512" rx="115" fill="url(#glowGrad)"/>
+  <rect width="512" height="512" rx="115" fill="none" stroke="#5b8fe0" stroke-width="3" stroke-opacity="0.35"/>
+
+  <!-- Sudoku Grid Container -->
+  <g transform="translate(116, 116)">
+    <!-- Grid Surface -->
+    <rect width="280" height="280" rx="24" fill="#1c2030" fill-opacity="0.9" stroke="#5b8fe0" stroke-width="4" stroke-opacity="0.7"/>
+
+    <!-- Accent Cells -->
+    <rect x="4" y="4" width="88" height="88" rx="14" fill="#5b8fe0" fill-opacity="0.22"/>
+    <rect x="188" y="4" width="88" height="88" rx="14" fill="#d9a13c" fill-opacity="0.18"/>
+    <rect x="188" y="188" width="88" height="88" rx="14" fill="#9b74d8" fill-opacity="0.25"/>
+
+    <!-- Inner Grid Lines -->
+    <g stroke="#9aa3b5" stroke-opacity="0.45" stroke-width="2.5" stroke-linecap="round">
+      <line x1="93.3" y1="8" x2="93.3" y2="272"/>
+      <line x1="186.6" y1="8" x2="186.6" y2="272"/>
+      <line x1="8" y1="93.3" x2="272" y2="93.3"/>
+      <line x1="8" y1="186.6" x2="272" y2="186.6"/>
+    </g>
+
+    <!-- Corner Digits -->
+    <text x="47" y="60" font-family="Segoe UI, -apple-system, sans-serif" font-size="36" font-weight="700" fill="#7fb0f5" text-anchor="middle">4</text>
+    <text x="233" y="60" font-family="Segoe UI, -apple-system, sans-serif" font-size="36" font-weight="700" fill="#e6c74c" text-anchor="middle">9</text>
+    <text x="47" y="246" font-family="Segoe UI, -apple-system, sans-serif" font-size="36" font-weight="700" fill="#b0bed2" text-anchor="middle">7</text>
+    <text x="233" y="246" font-family="Segoe UI, -apple-system, sans-serif" font-size="36" font-weight="700" fill="#b996f0" text-anchor="middle">3</text>
   </g>
-  <rect x="106" y="106" width="300" height="300" rx="18" fill="none" stroke="#ffffff" stroke-width="18"/>
-  <text x="256" y="285" font-family="Avenir Next, Segoe UI, sans-serif" font-size="140" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="4">UI</text>
+
+  <!-- Center Text Badge: "oxy" + "DOKU" -->
+  <g filter="url(#shadow)">
+    <rect x="146" y="202" width="220" height="108" rx="22" fill="#12141e" fill-opacity="0.96" stroke="#5b8fe0" stroke-width="3" stroke-opacity="0.85"/>
+  </g>
+  <text x="256" y="270" font-family="Segoe UI, -apple-system, sans-serif" font-size="76" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="-1">oxy</text>
+  <text x="256" y="296" font-family="Segoe UI, Bahnschrift, sans-serif" font-size="20" font-weight="700" fill="#7fb0f5" text-anchor="middle" letter-spacing="4">DOKU</text>
 </svg>

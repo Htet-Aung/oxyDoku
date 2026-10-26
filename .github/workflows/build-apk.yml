@@ -33,6 +33,14 @@ jobs:
       - name: Production web build
         run: npm run build
 
+      - name: Package OTA live update bundle
+        run: |
+          cd dist
+          zip -r ../dist.zip .
+          cd ..
+          COMMIT_SHA=$(git rev-parse --short=7 HEAD)
+          echo "{\"version\":\"1.0.0+$COMMIT_SHA\",\"url\":\"https://github.com/Htet-Aung/oxyDoku/releases/download/v1.0.0-apk/dist.zip\"}" > live-update.json
+
       - name: Sync Capacitor Android
         run: |
           mkdir -p android/app/src/main/assets/public
@@ -58,4 +66,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create v1.0.0-apk ./oxyDoku.apk --title "oxyDoku Android App" --notes "Direct APK download for Android phone. Download and install oxyDoku.apk directly." || gh release upload v1.0.0-apk ./oxyDoku.apk --clobber
+          gh release create v1.0.0-apk ./oxyDoku.apk ./dist.zip ./live-update.json --title "oxyDoku Android App" --notes "Direct APK download and OTA updates." || gh release upload v1.0.0-apk ./oxyDoku.apk ./dist.zip ./live-update.json --clobber

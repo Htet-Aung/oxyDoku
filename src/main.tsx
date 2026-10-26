@@ -14,6 +14,10 @@ import { useGame } from './state/gameStore';
 import { useAppStatus } from './state/appStatus';
 import { useSettings } from './state/settings';
 import { startLocales, langOfPath } from './content/i18n';
+import { initLiveUpdates } from './state/liveUpdate';
+
+// On native Capacitor, initialize OTA live updates early to confirm JS loaded
+initLiveUpdates();
 
 // /nb/ and /es/ are the app in Norwegian and Spanish, the addresses search
 // engines show for those languages: arriving there chooses the language
