@@ -746,12 +746,17 @@ export default function App() {
     if (!(el instanceof HTMLElement || el instanceof SVGElement)) return false;
     if (
       el.closest(
-        'svg.sudoku-board, .board-wrap, button, [role="button"], [role="radio"], [role="tab"], a, input, select, textarea, .modal, .dialog, .mobile-numpad-container, .mobile-floating-panel, .mobile-bottom-dock, .header-dropdown-menu, .theme-picker-popover'
+        'svg, .grid-wrap, .board, button, [role="button"], [role="radio"], [role="tab"], a, input, select, textarea, .modal, .dialog, .mobile-numpad-container, .mobile-floating-panel, .mobile-bottom-dock, .header-dropdown-menu, .theme-picker-popover'
       )
     ) {
       return false;
     }
-    return true;
+    return (
+      el.classList.contains('mobile-main') ||
+      el.classList.contains('mobile-board-container') ||
+      el.classList.contains('layout') ||
+      el.classList.contains('board-col')
+    );
   };
 
   useEffect(() => {
