@@ -6421,6 +6421,32 @@ html, body {
   flex-shrink: 0;
 }
 
+.mobile-timer-badge {
+  background: var(--btn-secondary-bg, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--border-color, rgba(128, 128, 160, 0.25));
+  border-radius: 12px;
+  padding: 3px 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  touch-action: manipulation;
+  transition: background 0.15s ease;
+}
+
+.mobile-timer-badge:active {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.mobile-theme-popover {
+  right: -32px;
+  max-width: calc(100vw - 24px);
+  z-index: 1050;
+}
+
 /* Mobile Main & Board */
 .mobile-main {
   flex: 1;

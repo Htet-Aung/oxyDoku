@@ -957,18 +957,83 @@ export default function App() {
                   <span className="practice-badge"> · {t('Practice: {tech}', { tech: t.tech(info.practiceTech) })}</span>
                 )}
               </button>
-              <LiveSyncIndicator />
             </div>
 
             <div className="mobile-topbar-right">
-              {showTimer && <Timer />}
+              {showTimer && (
+                <button
+                  type="button"
+                  className="mobile-timer-badge"
+                  onClick={togglePause}
+                  title={paused ? t('Paused') : t('Pause')}
+                  aria-label={paused ? t('Paused') : t('Pause')}
+                >
+                  <Timer />
+                </button>
+              )}
+              <div className="header-theme-picker-container">
+                <button
+                  className="icon-btn theme-btn"
+                  onClick={() => setShowThemePicker(!showThemePicker)}
+                  title={t('Theme')}
+                  aria-label={t('Theme')}
+                  aria-expanded={showThemePicker}
+                >
+                  {renderThemeIcon(theme, 16)}
+                </button>
+                {showThemePicker && (
+                  <div className="theme-picker-popover mobile-theme-popover" role="dialog" aria-label={t('Theme')}>
+                    <div className="theme-picker-header">
+                      <h4>{t('Theme')}</h4>
+                      <span className="theme-current-pill">
+                        {THEMES.find((item) => item.id === theme)?.name ?? theme}
+                      </span>
+                    </div>
+                    <div className="theme-picker-grid" role="menu">
+                      {THEMES.map((item) => {
+                        const isSelected = item.id === theme;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            role="menuitem"
+                            className={`theme-card-option${isSelected ? ' active' : ''}`}
+                            onClick={() => {
+                              setTheme(item.id);
+                              setShowThemePicker(false);
+                            }}
+                          >
+                            <div className="theme-card-swatches">
+                              <span
+                                className="theme-swatch-circle"
+                                style={{
+                                  backgroundColor: item.surfaceColor,
+                                  borderColor: item.primaryColor
+                                }}
+                              >
+                                <span
+                                  className="theme-swatch-dot"
+                                  style={{ backgroundColor: item.primaryColor }}
+                                />
+                              </span>
+                            </div>
+                            <div className="theme-card-info">
+                              <span className="theme-card-name">{t(item.name)}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
               <button
-                className="icon-btn theme-btn"
-                onClick={() => setShowThemePicker(!showThemePicker)}
-                title={t('Theme')}
-                aria-label={t('Theme')}
+                className="icon-btn restart-btn"
+                onClick={() => setDialog('restart')}
+                title={t('Restart')}
+                aria-label={t('Restart')}
               >
-                {renderThemeIcon(theme, 16)}
+                <span style={{ fontSize: '15px', lineHeight: 1 }}>↺</span>
               </button>
               <button
                 className="icon-btn gear"
