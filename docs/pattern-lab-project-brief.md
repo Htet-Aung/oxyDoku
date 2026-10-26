@@ -83,6 +83,10 @@ Pattern Lab connects six features around the existing `sudokUI` workspace:
 - Do **not** add countdown timers, recognition speed targets, leaderboards, streaks, or competitive rankings to Pattern Lab features.
 - Keep the interface calm, legible, and focused on the board and the reasoning.
 
+### 3.6 UI & Visual Design Standards: Strictly No Emojis & Rich Theme Chooser
+- **Strictly No Emojis:** Never use raw Unicode emoji characters anywhere in user-facing components, headings, buttons, tabs, dialogs, badges, or notifications. All visual symbols must be clean, accessible inline SVG icons from `src/ui/Icons.tsx` or clean typography.
+- **Rich Theme System:** Provide a diverse collection of non-generic color palettes (`dark`, `light`, `rose`, `forest`, `cyberpunk`, `chess`, `aquarium`, `midnight`, `retro`) accessible via an explicit theme chooser popover with visual swatches, names, and descriptions, as well as in the Settings dialog, rather than a simple cyclic toggle.
+
 ---
 
 ## 4. Verified Repository Baseline (Phase 0 & Phase 1 Audit)

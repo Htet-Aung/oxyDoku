@@ -185,7 +185,6 @@ p{margin:0 0 14px}
 .meta{color:var(--muted);font-size:15px}
 .lead{font-size:19px}
 .badge{display:inline-block;padding:1px 10px;border-radius:20px;font-size:13px;font-weight:700;background:rgba(128,128,160,.22);color:var(--text)}
-tr.pick td:first-child{padding-left:1.2em}
 .cta{display:inline-block;margin:6px 10px 6px 0;padding:11px 18px;border-radius:10px;background:#2f68bd;color:#fff;text-decoration:none;font-weight:600}
 .cta.ghost{background:none;border:1px solid var(--line);color:var(--text)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:18px 0}

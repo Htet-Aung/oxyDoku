@@ -11,6 +11,7 @@ Before making any code, state, or UI changes in this repository, **you must read
 - **Strictly non-mutating scanning:** Scanning a position must analyse the current board as it stands without applying moves, mutating candidates, or advancing the puzzle.
 - **All-instance coverage & honest bounds:** Report every distinct instance of applicable techniques on the current board (with canonical deduplication for symmetric chains/loops/subsets), preserve overlapping techniques that explain the same elimination, and explicitly flag any search-budget or instance-cap truncation.
 - **Explicit personal mastery:** Never assume the user knows a technique just because they viewed, asked about, or played a move justified by it. Only explicit user choices update "My Techniques".
+- **Strictly no emojis:** Never use raw emoji characters anywhere in the UI (buttons, headings, dialogs, badges, toasts, tabs, notifications, etc.). Always use clean, accessible inline SVG icons from `src/ui/Icons.tsx` or clean typography. Do not introduce emojis in any future UI or content updates.
 - **100% local & non-competitive:** Keep all features offline-capable and stored locally (`localStorage`). Do not add remote APIs, external AI calls, leaderboards, or timed recognition pressure.
 - **Layering:** Enforce `src/ui/ -> src/state/ -> src/engine/` (with static/i18n content in `src/content/`). `src/engine/` must remain pure TypeScript with zero React or DOM imports.
 

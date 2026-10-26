@@ -549,4 +549,420 @@ describe('Phase 1.5 — Exact Position Import from Sudoku Exchange', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
+
+  describe('Requirement 1 & 2: Regression Tests for Import Fidelity (Corner/Centre Distinctness)', () => {
+    it('Case 1: A board containing only corner notes maintains corner notes and zero centre notes', () => {
+      // Setup payload with corner notes ONLY
+      const corner = new Array<number>(81).fill(0);
+      corner[0] = bit(4) | bit(8);
+      corner[5] = bit(1) | bit(7);
+
+      const payload: PositionImportPayload = {
+        v: POSITION_IMPORT_VERSION,
+        source: 'sudokuexchange',
+        fidelity: 'full',
+        givens: SAMPLE_GIVENS,
+        values: SAMPLE_GIVENS.replace(/\./g, '0'),
+        corner
+      };
+
+      const outcome = useGame.getState().importPositionPayload(payload);
+      expect(outcome.ok).toBe(true);
+
+      const state = useGame.getState();
+      expect(state.lastImportFidelity).toBe('full');
+      expect(state.autoCandidates).toBe(false);
+      // Mark contract for corner-only notes must be open (Snyder notes), NOT exhaustive
+      expect(state.markContract).toBe('open');
+
+      // Exact bug verification: ALL corner notes stay corner notes, and NO centre notes exist anywhere on the board!
+      expect(state.cells[0].corner).toBe(bit(4) | bit(8));
+      expect(state.cells[5].corner).toBe(bit(1) | bit(7));
+      for (let i = 0; i < 81; i++) {
+        expect(state.cells[i].center).toBe(0);
+      }
+    });
+
+    it('Case 2: A board containing only centre notes maintains centre notes and zero corner notes', () => {
+      const center = new Array<number>(81).fill(0);
+      center[0] = bit(4) | bit(8);
+      center[5] = bit(1) | bit(7);
+
+      const payload: PositionImportPayload = {
+        v: POSITION_IMPORT_VERSION,
+        source: 'sudokuexchange',
+        fidelity: 'full',
+        givens: SAMPLE_GIVENS,
+        values: SAMPLE_GIVENS.replace(/\./g, '0'),
+        center
+      };
+
+      const outcome = useGame.getState().importPositionPayload(payload);
+      expect(outcome.ok).toBe(true);
+
+      const state = useGame.getState();
+      expect(state.lastImportFidelity).toBe('full');
+      expect(state.cells[0].center).toBe(bit(4) | bit(8));
+      expect(state.cells[5].center).toBe(bit(1) | bit(7));
+      for (let i = 0; i < 81; i++) {
+        expect(state.cells[i].corner).toBe(0);
+      }
+    });
+
+    it('Case 3: A board containing both types in different cells keeps them strictly isolated', () => {
+      const corner = new Array<number>(81).fill(0);
+      const center = new Array<number>(81).fill(0);
+      corner[0] = bit(2) | bit(6); // cell 0 has ONLY corner notes
+      center[5] = bit(1) | bit(9); // cell 5 has ONLY centre notes
+
+      const payload: PositionImportPayload = {
+        v: POSITION_IMPORT_VERSION,
+        source: 'sudokuexchange',
+        fidelity: 'full',
+        givens: SAMPLE_GIVENS,
+        values: SAMPLE_GIVENS.replace(/\./g, '0'),
+        corner,
+        center
+      };
+
+      const outcome = useGame.getState().importPositionPayload(payload);
+      expect(outcome.ok).toBe(true);
+
+      const state = useGame.getState();
+      expect(state.cells[0].corner).toBe(bit(2) | bit(6));
+      expect(state.cells[0].center).toBe(0);
+      expect(state.cells[5].corner).toBe(0);
+      expect(state.cells[5].center).toBe(bit(1) | bit(9));
+    });
+
+    it('Case 4: A cell containing both corner and centre notes simultaneously preserves both layers independently', () => {
+      const corner = new Array<number>(81).fill(0);
+      const center = new Array<number>(81).fill(0);
+      corner[0] = bit(4) | bit(8);
+      center[0] = bit(1) | bit(7);
+
+      const payload: PositionImportPayload = {
+        v: POSITION_IMPORT_VERSION,
+        source: 'sudokuexchange',
+        fidelity: 'full',
+        givens: SAMPLE_GIVENS,
+        values: SAMPLE_GIVENS.replace(/\./g, '0'),
+        corner,
+        center
+      };
+
+      const outcome = useGame.getState().importPositionPayload(payload);
+      expect(outcome.ok).toBe(true);
+
+      const state = useGame.getState();
+      expect(state.cells[0].corner).toBe(bit(4) | bit(8));
+      expect(state.cells[0].center).toBe(bit(1) | bit(7));
+    });
+
+    it('Case 5: Multiple digits within each note type are preserved with exact bitmasks', () => {
+      const corner = new Array<number>(81).fill(0);
+      const center = new Array<number>(81).fill(0);
+      corner[0] = bit(1) | bit(2) | bit(7) | bit(8);
+      center[5] = bit(3) | bit(4) | bit(5) | bit(6);
+
+      const payload: PositionImportPayload = {
+        v: POSITION_IMPORT_VERSION,
+        source: 'sudokuexchange',
+        fidelity: 'full',
+        givens: SAMPLE_GIVENS,
+        values: SAMPLE_GIVENS.replace(/\./g, '0'),
+        corner,
+        center
+      };
+
+      const outcome = useGame.getState().importPositionPayload(payload);
+      expect(outcome.ok).toBe(true);
+
+      const state = useGame.getState();
+      expect(state.cells[0].corner).toBe(bit(1) | bit(2) | bit(7) | bit(8));
+      expect(state.cells[5].center).toBe(bit(3) | bit(4) | bit(5) | bit(6));
+    });
+
+    it('Case 6: Empty cells with no notes have value 0 and all mask layers empty', () => {
+      const corner = new Array<number>(81).fill(0);
+      corner[0] = bit(4);
+
+      const payload: PositionImportPayload = {
+        v: POSITION_IMPORT_VERSION,
+        source: 'sudokuexchange',
+        fidelity: 'full',
+        givens: SAMPLE_GIVENS,
+        values: SAMPLE_GIVENS.replace(/\./g, '0'),
+        corner
+      };
+
+      const outcome = useGame.getState().importPositionPayload(payload);
+      expect(outcome.ok).toBe(true);
+
+      const state = useGame.getState();
+      // Cell 1 is an unmarked empty cell
+      expect(state.cells[1].value).toBe(0);
+      expect(state.cells[1].given).toBe(false);
+      expect(state.cells[1].corner).toBe(0);
+      expect(state.cells[1].center).toBe(0);
+      expect(state.cells[1].excluded).toBe(0);
+    });
+
+    it('Case 7: Cells containing entered digits are marked given: false with value set and marks cleared', () => {
+      const payload: PositionImportPayload = {
+        v: POSITION_IMPORT_VERSION,
+        source: 'sudokuexchange',
+        fidelity: 'grid-only',
+        givens: SAMPLE_GIVENS,
+        values: SAMPLE_VALUES
+      };
+
+      const outcome = useGame.getState().importPositionPayload(payload);
+      expect(outcome.ok).toBe(true);
+
+      const state = useGame.getState();
+      expect(state.cells[0].given).toBe(false);
+      expect(state.cells[0].value).toBe(4);
+      expect(state.cells[0].corner).toBe(0);
+      expect(state.cells[0].center).toBe(0);
+    });
+
+    it('Case 8: Candidate exclusions are preserved and honoured by the solver', () => {
+      const center = new Array<number>(81).fill(0);
+      const excluded = new Array<number>(81).fill(0);
+      center[7] = bit(5) | bit(7);
+      excluded[8] = bit(5);
+
+      const payload: PositionImportPayload = {
+        v: POSITION_IMPORT_VERSION,
+        source: 'sudokuexchange',
+        fidelity: 'full',
+        givens: SAMPLE_GIVENS,
+        values: SAMPLE_VALUES,
+        center,
+        excluded
+      };
+
+      const outcome = useGame.getState().importPositionPayload(payload);
+      expect(outcome.ok).toBe(true);
+
+      const state = useGame.getState();
+      expect(state.cells[8].excluded).toBe(bit(5));
+      const cg = contractGrid(state.cells, state.autoCandidates, state.markContract);
+      expect(cg.cands[8] & bit(5)).toBe(0);
+    });
+
+    it('Case 9: Cell colours are preserved without affecting note layers', () => {
+      const colors = new Array<number>(81).fill(0);
+      colors[0] = 4; // Color code 4 -> palette index 3
+
+      const payload: PositionImportPayload = {
+        v: POSITION_IMPORT_VERSION,
+        source: 'sudokuexchange',
+        fidelity: 'grid-only',
+        givens: SAMPLE_GIVENS,
+        values: SAMPLE_GIVENS.replace(/\./g, '0'),
+        colors
+      };
+
+      const outcome = useGame.getState().importPositionPayload(payload);
+      expect(outcome.ok).toBe(true);
+
+      const state = useGame.getState();
+      expect(state.cells[0].colors).toEqual([3]);
+    });
+
+    it('Case 10: All extraction fallback paths preserve corner-only boards without introducing centre marks', () => {
+      // 10a. Tier 2 Storage/Snapshot with ONLY outer pencil marks (T48)
+      const snapCornerOnly = '11T48';
+      const parsedSnap = parseSudokuExchangeSnapshot(SAMPLE_GIVENS, snapCornerOnly);
+      expect(parsedSnap).not.toBeNull();
+      expect(parsedSnap!.corner![0]).toBe(bit(4) | bit(8));
+      expect(parsedSnap!.center).toBeUndefined(); // Center array must not even be present or must be all 0!
+
+      // 10b. Tier 3 SVG DOM with ONLY outer pencil marks
+      const bgElements = Array.from({ length: 81 }, (_, i) => ({
+        getAttribute: (attr: string) => (attr === 'data-cell-index' ? String(i) : null),
+        classList: { contains: () => false },
+        querySelector: (sel: string) =>
+          sel === 'rect' ? { getAttribute: (a: string) => (a === 'x' ? '50' : a === 'y' ? '50' : a === 'width' ? '100' : null) } : null
+      }));
+      const outerOnlyElements = [
+        { getAttribute: (a: string) => (a === 'x' ? '68' : a === 'y' ? '80' : null), textContent: '4' },
+        { getAttribute: (a: string) => (a === 'x' ? '130' : a === 'y' ? '80' : null), textContent: '8' }
+      ];
+      const fakeDocCornerOnly = {
+        getElementById: () => null,
+        querySelectorAll: (sel: string) => {
+          if (sel.includes('g.cell-bg')) return bgElements as any;
+          if (sel.includes('text.digit')) return [] as any;
+          if (sel.includes('inner-pencil')) return [] as any;
+          if (sel.includes('outer-pencil')) return outerOnlyElements as any;
+          return [] as any;
+        }
+      };
+      const extractedFromDom = extractSudokuExchangePosition(fakeDocCornerOnly as unknown as Document, { localStorage: { length: 0 } as any, location: {} as any });
+      expect(extractedFromDom).not.toBeNull();
+      expect(extractedFromDom!.corner![0]).toBe(bit(4) | bit(8));
+      expect(extractedFromDom!.center).toBeUndefined();
+
+      // 10c. Tier 1 React Fiber with ONLY outer pencil marks
+      const fiberCellsCornerOnly = Array.from({ length: 81 }, (_, i) => ({
+        toObject: () => ({
+          index: i,
+          isGiven: SAMPLE_GIVENS[i] !== '0',
+          digit: '0',
+          outerPencils: i === 0 ? ['4', '8'] : [],
+          innerPencils: [],
+          colorCode: '1'
+        })
+      }));
+      const fiberRoot = {
+        __reactContainer$abc: {
+          memoizedProps: {
+            grid: {
+              toObject: () => ({
+                initialDigits: SAMPLE_GIVENS,
+                cells: { toArray: () => fiberCellsCornerOnly }
+              })
+            }
+          }
+        }
+      };
+      const extractedFromFiber = extractSudokuExchangePosition(
+        { getElementById: () => fiberRoot, querySelectorAll: () => [] } as unknown as Document,
+        { localStorage: { length: 0 } as any, location: {} as any }
+      );
+      expect(extractedFromFiber).not.toBeNull();
+      expect(extractedFromFiber!.corner![0]).toBe(bit(4) | bit(8));
+      expect(extractedFromFiber!.center).toBeUndefined();
+    });
+  });
+
+  describe('Requirements 3 & 4: Sudoku Exchange Keyboard Conventions & Multi-Cell Interactions', () => {
+    beforeEach(() => {
+      resetGameStore();
+      useGame.getState().startGame(SAMPLE_GIVENS, 100, 'Easy');
+    });
+
+    it('selecting multiple cells and entering a note toggles the note across all selected cells without placing solution digits', () => {
+      // Select 3 empty cells (r1c1=idx 0, r1c2=idx 1, r1c6=idx 5)
+      useGame.getState().select([0, 1, 5], false);
+      expect(useGame.getState().selection).toEqual([0, 1, 5]);
+
+      // Enter corner note 4
+      useGame.getState().input(4, 'corner');
+
+      const state = useGame.getState();
+      // Corner note 4 is present on all 3 cells
+      expect(state.cells[0].corner & bit(4)).toBe(bit(4));
+      expect(state.cells[1].corner & bit(4)).toBe(bit(4));
+      expect(state.cells[5].corner & bit(4)).toBe(bit(4));
+
+      // CRUCIAL: none of the 3 cells had value 4 placed!
+      expect(state.cells[0].value).toBe(0);
+      expect(state.cells[1].value).toBe(0);
+      expect(state.cells[5].value).toBe(0);
+    });
+
+    it('multi-cell selection with default mode digit defaults to corner note entry, never bulk digit entry', () => {
+      // In default 'digit' mode, with 3 empty cells selected, entering 4 must NOT fill cells with 4
+      expect(useGame.getState().mode).toBe('digit');
+      useGame.getState().select([0, 1, 5], false);
+
+      useGame.getState().input(4); // no mode override
+
+      const state = useGame.getState();
+      // Defaults to corner note 4
+      expect(state.cells[0].corner & bit(4)).toBe(bit(4));
+      expect(state.cells[1].corner & bit(4)).toBe(bit(4));
+      expect(state.cells[5].corner & bit(4)).toBe(bit(4));
+
+      // Values remain 0!
+      expect(state.cells[0].value).toBe(0);
+      expect(state.cells[1].value).toBe(0);
+      expect(state.cells[5].value).toBe(0);
+    });
+
+    it('single cell selection in mode digit places the solution digit normally', () => {
+      useGame.getState().select([0], false);
+      expect(useGame.getState().selection.length).toBe(1);
+
+      useGame.getState().input(4);
+
+      const state = useGame.getState();
+      expect(state.cells[0].value).toBe(4);
+      expect(state.cells[0].corner).toBe(0);
+      expect(state.cells[0].center).toBe(0);
+    });
+
+    it('multi-cell note operation is one coherent undoable action in history', () => {
+      useGame.getState().select([0, 1, 5], false);
+      useGame.getState().input(4, 'corner');
+
+      expect(useGame.getState().cells[0].corner & bit(4)).toBe(bit(4));
+      expect(useGame.getState().cells[1].corner & bit(4)).toBe(bit(4));
+      expect(useGame.getState().cells[5].corner & bit(4)).toBe(bit(4));
+
+      // Exactly ONE undo operation reverts all 3 cells back to 0
+      useGame.getState().undo();
+
+      const afterUndo = useGame.getState();
+      expect(afterUndo.cells[0].corner).toBe(0);
+      expect(afterUndo.cells[1].corner).toBe(0);
+      expect(afterUndo.cells[5].corner).toBe(0);
+
+      // Redo restores them all
+      useGame.getState().redo();
+      const afterRedo = useGame.getState();
+      expect(afterRedo.cells[0].corner & bit(4)).toBe(bit(4));
+      expect(afterRedo.cells[1].corner & bit(4)).toBe(bit(4));
+      expect(afterRedo.cells[5].corner & bit(4)).toBe(bit(4));
+    });
+
+    it('adding a corner note never overwrites existing centre notes, and vice versa', () => {
+      useGame.getState().select([0], false);
+
+      // Enter centre note 7
+      useGame.getState().input(7, 'center');
+      expect(useGame.getState().cells[0].center).toBe(bit(7));
+      expect(useGame.getState().cells[0].corner).toBe(0);
+
+      // Enter corner note 4
+      useGame.getState().input(4, 'corner');
+      expect(useGame.getState().cells[0].corner).toBe(bit(4));
+      // Centre note 7 is preserved!
+      expect(useGame.getState().cells[0].center).toBe(bit(7));
+
+      // Enter centre note 9
+      useGame.getState().input(9, 'center');
+      expect(useGame.getState().cells[0].center).toBe(bit(7) | bit(9));
+      // Corner note 4 is preserved!
+      expect(useGame.getState().cells[0].corner).toBe(bit(4));
+    });
+
+    it('period key shortcut (convertCornerToCenter) converts corner marks to centre marks', () => {
+      useGame.getState().select([0, 1], false);
+      useGame.getState().input(4, 'corner');
+      useGame.getState().input(8, 'corner');
+
+      expect(useGame.getState().cells[0].corner).toBe(bit(4) | bit(8));
+      expect(useGame.getState().cells[0].center).toBe(0);
+
+      // Execute convertCornerToCenter
+      useGame.getState().convertCornerToCenter();
+
+      const state = useGame.getState();
+      expect(state.cells[0].corner).toBe(0);
+      expect(state.cells[0].center).toBe(bit(4) | bit(8));
+      expect(state.cells[1].corner).toBe(0);
+      expect(state.cells[1].center).toBe(bit(4) | bit(8));
+
+      // Undo reverts conversion
+      useGame.getState().undo();
+      expect(useGame.getState().cells[0].corner).toBe(bit(4) | bit(8));
+      expect(useGame.getState().cells[0].center).toBe(0);
+    });
+  });
+
 });

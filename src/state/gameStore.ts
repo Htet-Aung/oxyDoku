@@ -25,7 +25,7 @@ import { justify, Move } from '../engine/justify';
 import { contradictionStep } from '../engine/techniques/forcing';
 import { Chain, EMPTY_CHAIN, extend, chainStep, conclusions } from '../engine/chainTrainer';
 import type { CellDigit } from '../engine/steps';
-import { Level, Tech, SOLVE_ORDER, hintOrder, asLevel } from '../engine/ratings';
+import { Level, Tech, SOLVE_ORDER, hintOrder, asLevel, pickOf } from '../engine/ratings';
 import { useSettings } from './settings';
 import { useStats } from './stats';
 import { useTelemetry } from './telemetry';
@@ -62,7 +62,7 @@ const emptyCell = (): CellState => ({
   colors: []
 });
 
-const cloneCells = (cells: CellState[]): CellState[] =>
+export const cloneCells = (cells: CellState[]): CellState[] =>
   cells.map((c) => ({ ...c, colors: [...c.colors] }));
 
 /** Engine view of the board: placed values + canonical candidates minus
@@ -291,6 +291,13 @@ interface GameStore {
    *  every cell and pencil mark of that digit lights up (a digit filter)
    *  and a tap on a cell enters it. Escape, or the digit again, disarms. */
   armedDigit: number | null;
+  /** multiple armed/highlighted digits to view across the board (e.g. [1, 8]) */
+  armedDigits: number[];
+  /** color index (0..8) armed from the color bar to paint cells with a click */
+  armedColor: number | null;
+  toggleArmedDigit: (digit: number, asColor?: boolean) => void;
+  clearArmedDigits: () => void;
+  setArmedDigits: (digits: number[]) => void;
   /** an assist the keyboard asked for while the first-assist question is
    *  on: the control panel shows the question and runs it on yes */
   pendingAssist: string | null;
@@ -423,6 +430,7 @@ interface GameStore {
   toggleAutoCandidates: () => void;
   fillCandidates: () => void;
   convertMarks: () => void;
+  convertCornerToCenter: () => void;
   requestHint: () => void;
   /** declare the marks' meaning without any follow-up action (Scan) */
   setMarkContract: (contract: 'exhaustive' | 'open') => void;
@@ -481,7 +489,7 @@ function checkWin(cells: CellState[], solution: string): boolean {
 /** practice: the player's own move did what the target technique does */
 function foundNotice(tech: Tech): string {
   const t = translator();
-  return t('You found the {name} 🎯', { name: t.tech(tech) });
+  return t('You found the {name}', { name: t.tech(tech) });
 }
 
 /** a finished game goes into the band record; practice starts part-way
@@ -507,8 +515,10 @@ function applyValidatedPosition(res: ValidatedPositionImport) {
   const autoCandidates = res.fidelity === 'grid-only' || !manualMarks;
   const markContract: MarkContract =
     res.fidelity === 'full'
-      ? hasCenter || markSlip(cells, res.solution) === -1
-        ? 'exhaustive'
+      ? hasCenter
+        ? markSlip(cells, res.solution) === -1
+          ? 'exhaustive'
+          : 'open'
         : 'open'
       : 'unknown';
   useGame.setState((s) => ({
@@ -523,11 +533,11 @@ function applyValidatedPosition(res: ValidatedPositionImport) {
       res.fidelity === 'full'
         ? t(
             'Full position imported from Sudoku Exchange (givens, entries and pencil marks preserved), HoDoKu rating {score} ({level})',
-            { score: res.score, level: t.level(res.level) }
+            { score: res.score, level: t.level(pickOf(res.level, res.score)) }
           )
         : t(
             'Grid imported from Sudoku Exchange (givens and entries preserved; candidates recalculated), HoDoKu rating {score} ({level})',
-            { score: res.score, level: t.level(res.level) }
+            { score: res.score, level: t.level(pickOf(res.level, res.score)) }
           )
   }));
 }
@@ -541,6 +551,8 @@ export const useGame = create<GameStore>()(
       customBackup: null as GameBackup | null,
       selection: [],
       armedDigit: null,
+      armedDigits: [],
+      armedColor: null,
       pendingAssist: null,
       mode: 'digit' as EntryMode,
       tempMode: null,
@@ -647,6 +659,8 @@ export const useGame = create<GameStore>()(
           cells,
           selection: [],
           armedDigit: null,
+      armedDigits: [],
+      armedColor: null,
           history: [],
           future: [],
           startedAt: Date.now(),
@@ -784,7 +798,7 @@ export const useGame = create<GameStore>()(
         set({ custom: false, customBackup: null, scanPreview: null, scanDoubts: [] });
         get().startGame(puzzle, v.score, v.level);
         const t = translator();
-        set({ notice: t('Puzzle checked: unique solution, HoDoKu rating {score} ({level})', { score: v.score, level: t.level(v.level) }) });
+        set({ notice: t('Puzzle checked: unique solution, HoDoKu rating {score} ({level})', { score: v.score, level: t.level(pickOf(v.level, v.score)) }) });
         return null;
       },
 
@@ -796,6 +810,8 @@ export const useGame = create<GameStore>()(
           // clearing the selection (Escape, a tap beside the board) also
           // puts down an armed digit
           armedDigit: cells.length === 0 && !additive ? null : s.armedDigit,
+          armedDigits: cells.length === 0 && !additive ? [] : s.armedDigits,
+          armedColor: cells.length === 0 && !additive ? null : s.armedColor,
           hint: s.hint,
           errors: s.errors
         })),
@@ -814,7 +830,37 @@ export const useGame = create<GameStore>()(
           };
         }),
 
-      armDigit: (digit) => set({ armedDigit: digit }),
+      armDigit: (digit) =>
+        set({
+          armedDigit: digit,
+          armedDigits: digit !== null ? [digit] : [],
+          armedColor: null
+        }),
+
+      toggleArmedDigit: (digit, asColor = false) =>
+        set((s) => {
+          const exists = s.armedDigits.includes(digit);
+          let nextDigits: number[];
+          if (exists) {
+            nextDigits = s.armedDigits.filter((d) => d !== digit);
+          } else {
+            nextDigits = [...s.armedDigits, digit];
+          }
+          const last = nextDigits.length > 0 ? nextDigits[nextDigits.length - 1] : null;
+          return {
+            armedDigits: nextDigits,
+            armedDigit: null,
+            armedColor: asColor ? (last !== null ? last - 1 : null) : null
+          };
+        }),
+
+      clearArmedDigits: () => set({ armedDigits: [], armedDigit: null, armedColor: null }),
+
+      setArmedDigits: (digits) =>
+        set({
+          armedDigits: digits,
+          armedDigit: digits.length > 0 ? digits[digits.length - 1] : null
+        }),
 
       askAssist: (name) => set({ pendingAssist: name }),
 
@@ -833,12 +879,32 @@ export const useGame = create<GameStore>()(
       input: (digit, as) => {
         const s = get();
         if (s.won || s.paused) return;
-        const mode = as ?? s.tempMode ?? s.mode;
+        let mode = as ?? s.tempMode ?? s.mode;
         // nothing selected: the digit is armed (number-first), or put down
         // again if it was the armed one
         if (s.selection.length === 0) {
-          set({ armedDigit: s.armedDigit === digit ? null : digit });
+          const isColor = mode === 'color';
+          const exists = s.armedDigits.includes(digit);
+          let nextDigits: number[];
+          if (exists) {
+            nextDigits = s.armedDigits.filter((d) => d !== digit);
+          } else {
+            nextDigits = isColor ? [...s.armedDigits, digit] : [digit];
+          }
+          const last = nextDigits.length > 0 ? nextDigits[nextDigits.length - 1] : null;
+          set({
+            armedDigits: nextDigits,
+            armedDigit: isColor ? null : last,
+            armedColor: isColor ? (last !== null ? last - 1 : null) : null
+          });
           return;
+        }
+        // Sudoku Exchange keyboard convention:
+        // Selecting multiple cells and entering a number for a note must add a note to those cells,
+        // not enter that number as the solution in every selected cell.
+        // For multiple selected cells, normal digit entry defaults to corner pencil marks!
+        if (mode === 'digit' && s.selection.length > 1) {
+          mode = 'corner';
         }
         const targets = s.selection.filter((i) => !s.cells[i].given || mode === 'color');
         if (!targets.length) return;
@@ -1177,7 +1243,7 @@ export const useGame = create<GameStore>()(
 
       /**
        * Fill candidates into the marks of the current mode (corner mode fills
-       * corners, everything else fills centre). With any empty cell selected,
+       * corners, centre mode fills centre, and other modes default to corner). With any empty cell selected,
        * only the selected empty cells are filled — handy when your own logic is already
        * underway elsewhere. Wrong marks are corrected and reported.
        */
@@ -1185,7 +1251,7 @@ export const useGame = create<GameStore>()(
         const s = get();
         const g = engineGrid(s.cells);
         const cells = cloneCells(s.cells);
-        const layer = (s.tempMode ?? s.mode) === 'corner' ? 'corner' : 'center';
+        const layer = (s.tempMode ?? s.mode) === 'center' ? 'center' : 'corner';
         const scope = s.selection.filter((i) => !cells[i].given && !cells[i].value);
         const partial = scope.length >= 1;
         const targets = partial
@@ -1260,6 +1326,32 @@ export const useGame = create<GameStore>()(
             changed > 1
               ? t(partial ? 'Swapped corner and centre marks in {n} cells (selection)' : 'Swapped corner and centre marks in {n} cells', vars)
               : t(partial ? 'Swapped corner and centre marks in {n} cell (selection)' : 'Swapped corner and centre marks in {n} cell', vars)
+        });
+      },
+
+      convertCornerToCenter: () => {
+        const s = get();
+        if (s.won || s.paused) return;
+        const cells = cloneCells(s.cells);
+        const scope = s.selection.filter((i) => !cells[i].given && !cells[i].value);
+        const targets = scope.length >= 1
+          ? scope
+          : Array.from({ length: 81 }, (_, i) => i).filter(
+              (i) => !cells[i].given && !cells[i].value
+            );
+        let changed = 0;
+        for (const i of targets) {
+          const c = cells[i];
+          if (!c.corner) continue;
+          c.center |= c.corner;
+          c.corner = 0;
+          changed++;
+        }
+        if (!changed) return;
+        set({
+          cells,
+          history: [...s.history, cloneCells(s.cells)],
+          future: []
         });
       },
 
@@ -1507,6 +1599,8 @@ export const useGame = create<GameStore>()(
           hintStage: 'hidden',
           selection: [],
           armedDigit: null,
+      armedDigits: [],
+      armedColor: null,
           // the engine checks every link, and the trainer taps candidates,
           // so they must be on the board
           assisted: true,
@@ -1546,7 +1640,7 @@ export const useGame = create<GameStore>()(
           hint: drawn ? chainStep(g, r.chain, { suggest: s.chainSuggest, goal: s.chainGoal ?? undefined }) : null,
           hintStage: drawn ? 'full' : 'hidden',
           ...(met && s.info?.practiceTech
-            ? { practiceFound: true, notice: t('You built the {name} yourself 🎯', { name: t.tech(s.info.practiceTech) }) }
+            ? { practiceFound: true, notice: t('You built the {name} yourself', { name: t.tech(s.info.practiceTech) }) }
             : {})
         });
       },
@@ -1743,6 +1837,15 @@ export const useGame = create<GameStore>()(
           .join('');
         const v = validatePuzzle(givens);
         if (!v.ok) return false;
+        const cur = get();
+        // If there is an active in-progress game on this puzzle with player moves, don't silently overwrite
+        if (cur.info && !cur.won && playedOn(cur) && cur.info.puzzle === givens) {
+          const localEntries = cur.cells.filter((c) => !c.given && c.value !== 0);
+          const sharedEntries = decoded.cells.filter((c) => !c.given && c.value !== 0);
+          if (localEntries.length >= sharedEntries.length && localEntries.length > 0) {
+            return false;
+          }
+        }
         // start the underlying game (computes the solution), then overlay
         // the shared progress: entries, marks, exclusions and colours
         get().startGame(givens, v.score, v.level);

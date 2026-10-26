@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useSettings } from '../state/settings';
 import { useT, rich } from '../content/i18n';
 import { Modal } from './Dialogs';
+import { CheckIcon, GraduationCapIcon, CloseIcon } from './Icons';
 import { TECHS, Tech, Category } from '../engine/ratings';
 import { IMPLEMENTED_TECHS, UNIMPLEMENTED_TECHS, TECH_SCANNER_META } from '../engine/scanner';
 import {
@@ -68,11 +69,11 @@ export function MyTechniquesDialog({ onClose, onLearn }: MyTechniquesDialogProps
   };
 
   return (
-    <Modal title={t('My Techniques')} onClose={onClose}>
+    <Modal title={t('My Techniques')} onClose={onClose} wide>
       <div className="mastery-dialog-content">
         <p className="dialog-note">
           {t(
-            'Tell Pattern Lab which Sudoku techniques you already understand or are currently studying. The Pattern Scanner uses this to show the patterns you care about without overwhelming you with unfamiliar methods.'
+            'Choose which Sudoku techniques you already understand or are currently studying. The Pattern Scanner uses this to show the patterns you care about without overwhelming you with unfamiliar methods.'
           )}
         </p>
 
@@ -197,21 +198,21 @@ export function MyTechniquesDialog({ onClose, onLearn }: MyTechniquesDialogProps
                         onClick={() => setTechniqueFamiliarityBatch(matchingTechs, 'known')}
                         title={t('Mark all matching techniques in this concept as Known')}
                       >
-                        ✓ {t('All Known')}
+                        <CheckIcon size={12} /> {t('All Known')}
                       </button>
                       <button
                         className="ghost mini"
                         onClick={() => setTechniqueFamiliarityBatch(matchingTechs, 'learning')}
                         title={t('Mark all matching techniques in this concept as Learning')}
                       >
-                        🎓 {t('All Learning')}
+                        <GraduationCapIcon size={12} /> {t('All Learning')}
                       </button>
                       <button
                         className="ghost mini"
                         onClick={() => setTechniqueFamiliarityBatch(matchingTechs, 'unfamiliar')}
                         title={t('Mark all matching techniques in this concept as Unfamiliar')}
                       >
-                        ✕ {t('All Unfamiliar')}
+                        <CloseIcon size={12} /> {t('All Unfamiliar')}
                       </button>
                     </div>
                   </div>
@@ -251,21 +252,21 @@ export function MyTechniquesDialog({ onClose, onLearn }: MyTechniquesDialogProps
                         onClick={() => setTechniqueFamiliarityBatch(catTechs, 'known')}
                         title={t('Mark all matching techniques in this category as Known')}
                       >
-                        ✓ {t('All Known')}
+                        <CheckIcon size={12} /> {t('All Known')}
                       </button>
                       <button
                         className="ghost mini"
                         onClick={() => setTechniqueFamiliarityBatch(catTechs, 'learning')}
                         title={t('Mark all matching techniques in this category as Learning')}
                       >
-                        🎓 {t('All Learning')}
+                        <GraduationCapIcon size={12} /> {t('All Learning')}
                       </button>
                       <button
                         className="ghost mini"
                         onClick={() => setTechniqueFamiliarityBatch(catTechs, 'unfamiliar')}
                         title={t('Mark all matching techniques in this category as Unfamiliar')}
                       >
-                        ✕ {t('All Unfamiliar')}
+                        <CloseIcon size={12} /> {t('All Unfamiliar')}
                       </button>
                     </div>
                   </div>
@@ -330,13 +331,12 @@ function TechniqueRow({
               {t('Not implemented in engine')}
             </span>
           )}
+          {taxonomy?.aliases && taxonomy.aliases.length > 0 && (
+            <span className="mastery-tech-aliases" title={t('Also called: {aliases}', { aliases: taxonomy.aliases.join(', ') })}>
+              {t('Also called: {aliases}', { aliases: taxonomy.aliases.join(', ') })}
+            </span>
+          )}
         </div>
-
-        {taxonomy?.aliases && taxonomy.aliases.length > 0 && (
-          <p className="mastery-tech-aliases">
-            {t('Also called: {aliases}', { aliases: taxonomy.aliases.join(', ') })}
-          </p>
-        )}
 
         {taxonomy?.explanation && (
           <p className="mastery-tech-explanation">{t(taxonomy.explanation)}</p>
@@ -353,7 +353,7 @@ function TechniqueRow({
               onClick={() => onSetFamiliarity('known')}
               title={t('I know and want to practice this pattern')}
             >
-              ✓ {t('Known')}
+              <CheckIcon size={12} /> {t('Known')}
             </button>
             <button
               className={familiarity === 'learning' ? 'active learning' : ''}
@@ -362,7 +362,7 @@ function TechniqueRow({
               onClick={() => onSetFamiliarity('learning')}
               title={t('I am studying this pattern')}
             >
-              🎓 {t('Learning')}
+              <GraduationCapIcon size={12} /> {t('Learning')}
             </button>
             <button
               className={familiarity === 'unfamiliar' ? 'active unfamiliar' : ''}
@@ -371,7 +371,7 @@ function TechniqueRow({
               onClick={() => onSetFamiliarity('unfamiliar')}
               title={t('I do not want this in my normal scan')}
             >
-              ✕ {t('Unfamiliar')}
+              <CloseIcon size={12} /> {t('Unfamiliar')}
             </button>
           </div>
         ) : (

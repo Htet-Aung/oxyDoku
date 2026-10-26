@@ -1,3 +1,20 @@
+import {
+  TargetIcon,
+  GraduationCapIcon,
+  CameraIcon,
+  VideoIcon,
+  LinkIcon,
+  MapPinIcon,
+  TrophyIcon,
+  SparklesIcon,
+  FlameIcon,
+  GlobeIcon,
+  TrendingUpIcon,
+  CheckIcon,
+  CloseIcon,
+  GearIcon,
+  ExternalLinkIcon
+} from './Icons';
 // Game dialogs: new game, practice (full technique catalogue), import/export,
 // generation progress and victory — plus useNewGame, the hook that ties the
 // puzzle pools, the generation worker and the game store together.
@@ -13,7 +30,7 @@ import {
 } from '../state/gameStore';
 import { findAllSteps } from '../engine/humanSolver';
 import { Step } from '../engine/steps';
-import { Level, LevelPick, PICKS, Tech, TECHS, PRACTICE_TECHS, ALL_TECHS, Category, SOLVE_ORDER, NOT_PRACTISABLE, hintOrder } from '../engine/ratings';
+import { Level, LevelPick, PICKS, Tech, TECHS, PRACTICE_TECHS, ALL_TECHS, Category, SOLVE_ORDER, NOT_PRACTISABLE, hintOrder, pickOf } from '../engine/ratings';
 import { requestPuzzle, takePoolEntry, levelKey, techKey, poolSize, filePoolEntries, practisable, GenerationHandle } from '../state/pools';
 import { useStats, gameSummary, dailyStreak } from '../state/stats';
 import { practiceSeeds } from '../content/practicePuzzles';
@@ -21,7 +38,7 @@ import { seedPuzzles, SEEDED_LEVELS } from '../content/seeds';
 import { cruxIndex } from '../engine/generator';
 import { timeVerdict, timeBand, percentileText, MODE_LABEL, SolveMode } from '../content/solveTimes';
 import { useT, translator, msg, rich, Translator } from '../content/i18n';
-import { shareUrl, techsWorthNaming, clockOf } from '../content/share';
+import { shareUrl, sudokuWikiUrl, techsWorthNaming, clockOf } from '../content/share';
 import { parsePencilGrid, looksLikeGrid, formatPencilGrid } from '../content/textGrid';
 import { puzzleFromLink } from '../content/importLinks';
 import { looksLikePositionImport } from '../content/sudokuExchangeImport';
@@ -268,13 +285,13 @@ export function PracticeDialog({
           <span className="pool-dot" /> {t('a puzzle is ready and starts instantly')}
         </li>
         <li>
-          <span className="tech-gear">⚙</span> {t('solver only: there is no pattern to spot, so nothing to practise')}
+          <span className="tech-gear"><GearIcon size={12} /></span> {t('solver only: there is no pattern to spot, so nothing to practise')}
         </li>
         <li>
           <span className="tech-tilde">≈</span> {t('never needed: an easier technique always gets there first')}
         </li>
         <li>
-          <span className="tech-x">✗</span> {t('not implemented: the chain techniques already cover it')}
+          <span className="tech-x"><CloseIcon size={12} /></span> {t('not implemented: the chain techniques already cover it')}
         </li>
       </ul>
       <div className="practice-mixed-card">
@@ -284,7 +301,7 @@ export function PracticeDialog({
         </div>
         {onStartMixed && (
           <button className="primary" onClick={onStartMixed}>
-            🎯 {t('Start Mixed Practice')}
+            <TargetIcon size={16} /> {t('Start Mixed Practice')}
           </button>
         )}
       </div>
@@ -346,16 +363,16 @@ export function PracticeDialog({
                     {ok ? (
                       ''
                     ) : lastResort ? (
-                      <span className="tech-gear">⚙ </span>
+                      <span className="tech-gear"><GearIcon size={12} /> </span>
                     ) : redundant ? (
                       <span className="tech-tilde">≈ </span>
                     ) : (
-                      <span className="tech-x">✗ </span>
+                      <span className="tech-x"><CloseIcon size={12} /> </span>
                     )}
                     {name}
                     {ok && fam !== 'unfamiliar' && (
                       <span className={`practice-fam-badge fam-${fam}`} title={t(fam === 'known' ? 'Technique you know' : 'Technique you are learning')}>
-                        {fam === 'known' ? '✓' : '🎓'}
+                        {fam === 'known' ? <CheckIcon size={12} /> : <GraduationCapIcon size={12} />}
                       </span>
                     )}
                     <span className="tech-score">{info.score}</span>
@@ -804,11 +821,11 @@ export function ScanControls({ onDone }: { onDone: () => void }) {
                 if (f) scan(f);
               }}
             />
-            📷 {busy ? t('Reading…') : t('Photo or file')}
+            <CameraIcon size={16} /> {busy ? t('Reading…') : t('Photo or file')}
           </label>
           {canCamera && (
             <button className="ghost" onClick={openCamera} disabled={busy}>
-              🎥 {t('Use the camera')}
+              <VideoIcon size={16} /> {t('Use the camera')}
             </button>
           )}
         </div>
@@ -1062,6 +1079,10 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
   // what to look for, which the app otherwise never does unasked, so the
   // sender ticks the box for this link on purpose (docs/online-goals.md)
   const [nameTechs, setNameTechs] = useState(false);
+  const hasEntries = cells.some((c) => !c.given && c.value > 0);
+  const hasNotes = cells.some((c) => !c.value && (((c.corner ?? 0) | (c.center ?? 0) | (c.excluded ?? 0)) !== 0));
+  const hasProgress = hasEntries || hasNotes;
+  const [includeEntries, setIncludeEntries] = useState(true);
   const t = useT();
   const shareTechs = useShareTechs(nameTechs ? info?.puzzle : undefined);
 
@@ -1147,23 +1168,47 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
           </span>
         </label>
       )}
+      {hasProgress && (
+        <label className="tick-row">
+          <input
+            type="checkbox"
+            checked={includeEntries}
+            onChange={(e) => setIncludeEntries(e.target.checked)}
+          />
+          <span className="setting-text">
+            <span>{t('Include digits you have entered')}</span>
+            <small>{t('Open SudokuWiki with your entered digits, rather than the fresh puzzle')}</small>
+          </span>
+        </label>
+      )}
       <div className="hint-actions">
         <button onClick={() => copy('link')}>
-          {copied === 'link' ? `✓ ${t('Copied')}` : `🔗 ${t('Puzzle link')}`}
+          {copied === 'link' ? <><CheckIcon size={14} /> {t('Copied')}</> : <><LinkIcon size={14} /> {t('Puzzle link')}</>}
         </button>
         <button onClick={() => copy('position')}>
-          {copied === 'position' ? `✓ ${t('Copied')}` : `📍 ${t('Position link')}`}
+          {copied === 'position' ? <><CheckIcon size={14} /> {t('Copied')}</> : <><MapPinIcon size={14} /> {t('Position link')}</>}
         </button>
         <button className="ghost" onClick={() => copy('string')}>
-          {copied === 'string' ? `✓ ${t('Copied')}` : t('Puzzle string')}
+          {copied === 'string' ? <><CheckIcon size={14} /> {t('Copied')}</> : t('Puzzle string')}
         </button>
         <button
           className="ghost"
           onClick={() => copy('text')}
           title={t('Copy the board as a pencil-mark grid, the text solvers paste on the forums')}
         >
-          {copied === 'text' ? `✓ ${t('Copied')}` : t('Position as text')}
+          {copied === 'text' ? <><CheckIcon size={14} /> {t('Copied')}</> : t('Position as text')}
         </button>
+        <a
+          role="button"
+          className="ghost"
+          href={sudokuWikiUrl(cells, hasProgress && includeEntries, { autoCandidates, markContract })}
+          target="_blank"
+          rel="noreferrer"
+          onClick={() => setTimeout(onClose, 100)}
+          title={t('Open this puzzle in Andrew Stuart’s SudokuWiki solver')}
+        >
+          <ExternalLinkIcon size={14} /> {t('Open in SudokuWiki')}
+        </a>
       </div>
     </Modal>
   );
@@ -1282,7 +1327,7 @@ export function VictoryDialog({
   const practiceName = info.practiceTech ? t.tech(info.practiceTech) : '';
   const practiceLine = info.practiceTech
     ? practiceFound
-      ? `🎯 ${t('You found the {name} yourself', { name: practiceName })}`
+      ? t('You found the {name} yourself', { name: practiceName })
       : game.hinted[info.practiceTech]
         ? t('The {name} came from a hint. Next time, look for it first', { name: practiceName })
         : t('You solved it without playing the {name}. Next time, look for it first', { name: practiceName })
@@ -1295,7 +1340,7 @@ export function VictoryDialog({
   const challengeLine = !challengeVars
     ? null
     : challengeBeaten
-      ? `🏆 ${t('Challenge beaten: {theirs} to beat, you took {time}', challengeVars)}`
+      ? t('Challenge beaten: {theirs} to beat, you took {time}', challengeVars)
       : secs === info.challenge
         ? t('Challenge tied: {theirs} to beat, you took {time}', challengeVars)
         : t('Challenge missed: {theirs} to beat, you took {time}', challengeVars);
@@ -1385,8 +1430,8 @@ export function VictoryDialog({
         ))}
       </div>
       <div className="modal victory" role="dialog" aria-modal="true" aria-label={t('Puzzle solved')}>
-        <h3>{t('Solved!')} 🎉</h3>
-        <p>{t('{level} · HoDoKu rating {score} · {time}', { level: t.level(info.level), score: info.score, time: `${mm}:${ss}` })}</p>
+        <h3>{t('Solved!')}</h3>
+        <p>{t('{level} · HoDoKu rating {score} · {time}', { level: t.level(pickOf(info.level, info.score)), score: info.score, time: `${mm}:${ss}` })}</p>
         {verdict && (
           <p
             className="solve-verdict"
@@ -1412,10 +1457,10 @@ export function VictoryDialog({
                   setting: t('Jump to the technique')
                 })
               : t('Solved with assistance. Restart the puzzle for an unassisted run')
-            : `✨ ${t('Unassisted solve: no help, every mark your own')}`}
+            : <><SparklesIcon size={14} /> {t('Unassisted solve: no help, every mark your own')}</>}
         </p>
-        {practiceLine && <p className={practiceFound ? 'solve-clean' : 'solve-assisted'}>{practiceLine}</p>}
-        {challengeLine && <p className={challengeBeaten ? 'solve-clean' : 'solve-assisted'}>{challengeLine}</p>}
+        {practiceLine && <p className={practiceFound ? 'solve-clean' : 'solve-assisted'}><TargetIcon size={14} /> {practiceLine}</p>}
+        {challengeLine && <p className={challengeBeaten ? 'solve-clean' : 'solve-assisted'}><TrophyIcon size={14} /> {challengeLine}</p>}
         {summary && (
           <p className="solve-summary" title={t('Every move of your own is credited with the easiest technique that justifies it')}>
             {summary}
@@ -1432,7 +1477,7 @@ export function VictoryDialog({
                 })}
           </p>
         )}
-        {streak > 1 && <p className="solve-record">🔥 {t('Daily streak: {n} days', { n: streak })}</p>}
+        {streak > 1 && <p className="solve-record"><FlameIcon size={14} /> {t('Daily streak: {n} days', { n: streak })}</p>}
         {info.dailyNo && (
           <div className="daily-stats">
             <p className="solve-record">
@@ -1446,7 +1491,7 @@ export function VictoryDialog({
             </p>
             {submittedSecs !== undefined && stats ? (
               <p className="solve-clean">
-                {crowdPct !== null ? `🌍 ${t('You were faster than {pct}% of them', { pct: crowdPct })}` : `🌍 ${t('Your time is the first one in')}`}
+                {crowdPct !== null ? <><GlobeIcon size={14} /> {t('You were faster than {pct}% of them', { pct: crowdPct })}</> : <><GlobeIcon size={14} /> {t('Your time is the first one in')}</>}
               </p>
             ) : sent === 'sending' ? (
               <p className="solve-assisted">{t('Sending your time…')}</p>
@@ -1459,7 +1504,7 @@ export function VictoryDialog({
             ) : assisted ? (
               <p className="solve-assisted">{t('Only unassisted solves are counted in everyone’s times')}</p>
             ) : (
-              <button onClick={sendDaily}>🌍 {t('Send my time and compare')}</button>
+              <button onClick={sendDaily}><GlobeIcon size={14} /> {t('Send my time and compare')}</button>
             )}
           </div>
         )}
@@ -1488,10 +1533,10 @@ export function VictoryDialog({
             <button onClick={onAnother}>{t('Another {name}', { name: practiceName })}</button>
           )}
           <button onClick={onNewGame}>{t('New game')}</button>
-          <button onClick={shareResult}>{copied ? `✓ ${t('Copied')}` : `🔗 ${t('Challenge a friend')}`}</button>
+          <button onClick={shareResult}>{copied ? <><CheckIcon size={14} /> {t('Copied')}</> : <><LinkIcon size={14} /> {t('Challenge a friend')}</>}</button>
           {onProgress && (
             <button className="ghost" onClick={onProgress}>
-              📈 {t('Your path')}
+              <TrendingUpIcon size={14} /> {t('Your path')}
             </button>
           )}
           <button className="ghost" onClick={onClose}>{t('Admire the grid')}</button>
@@ -1570,7 +1615,7 @@ export function Modal({
       >
         <div className="modal-head">
           <h3>{title}</h3>
-          <button className="close-btn" onClick={onClose} aria-label={t('Close dialog')}>✕</button>
+          <button className="close-btn" onClick={onClose} aria-label={t('Close dialog')}><CloseIcon size={14} /></button>
         </div>
         {children}
       </div>

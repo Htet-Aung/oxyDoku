@@ -1,7 +1,7 @@
 // Settings dialog (gear) and help dialog (ⓘ): user preferences and a
 // reference for modes, shortcuts and the candidate model.
-import React from 'react';
-import { useSettings, MarkLayer, Font } from '../state/settings';
+import React, { useState, useRef, useEffect } from 'react';
+import { useSettings, MarkLayer, Font, THEMES, type Theme } from '../state/settings';
 import { useGame } from '../state/gameStore';
 import { LANGS, useT, msg, rich } from '../content/i18n';
 import { Modal } from './Dialogs';
@@ -12,6 +12,7 @@ import { useLearnLocale } from './useLearnLocale';
 import { PRIVACY_URL } from '../content/staticRoutes';
 import { PALETTE } from './Grid';
 import { countMasteryStats } from '../content/mastery';
+import { CheckIcon } from './Icons';
 
 // The rating summary in the chosen language. English is at hand; a
 // translation comes from the guide's own locale file (useLearnLocale.ts),
@@ -54,6 +55,112 @@ function Toggle({
   );
 }
 
+function ThemeDropdown({
+  theme,
+  onSelect
+}: {
+  theme: Theme;
+  onSelect: (theme: Theme) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const t = useT();
+
+  const currentTheme = THEMES.find((item) => item.id === theme) ?? THEMES[0];
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  const handleMouseEnter = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    setIsOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsOpen(false);
+    }, 200);
+  };
+
+  return (
+    <div
+      className="setting-theme-dropdown"
+      ref={containerRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <button
+        type="button"
+        className="setting-theme-trigger"
+        onClick={() => setIsOpen((prev) => !prev)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+      >
+        <span className="setting-theme-trigger-left">
+          <span
+            className="theme-option-dot"
+            style={{
+              backgroundColor: currentTheme.primaryColor,
+              borderColor: currentTheme.surfaceColor
+            }}
+          />
+          <span className="setting-theme-trigger-name">{t(currentTheme.name)}</span>
+        </span>
+        <span className="setting-theme-trigger-arrow" aria-hidden="true">
+          ▾
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="setting-theme-menu" role="listbox" aria-label={t('Theme')}>
+          {THEMES.map((item) => {
+            const isSelected = item.id === theme;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                className={`setting-theme-item${isSelected ? ' active' : ''}`}
+                onClick={() => {
+                  onSelect(item.id);
+                  setIsOpen(false);
+                }}
+              >
+                <span
+                  className="theme-option-dot"
+                  style={{
+                    backgroundColor: item.primaryColor,
+                    borderColor: item.surfaceColor
+                  }}
+                />
+                <span className="setting-theme-item-name">{t(item.name)}</span>
+                {isSelected && (
+                  <span className="setting-theme-item-check" aria-hidden="true">
+                    <CheckIcon size={14} />
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SettingsDialog({
   onClose,
   onMyTechniques
@@ -64,8 +171,6 @@ export function SettingsDialog({
   const s = useSettings();
   const masteryStats = countMasteryStats(s.mastery);
   const t = useT();
-
-
 
   return (
     <Modal title={t('Settings')} onClose={onClose}>
@@ -89,7 +194,7 @@ export function SettingsDialog({
         </div>
       </div>
       <h4 className="setting-group">{t('Appearance')}</h4>
-      <div className="setting-row stack" role="group" aria-label={t('Theme')}>
+      <div className="setting-row" role="group" aria-label={t('Theme')}>
         <div className="setting-text">
           <span>{t('Theme')}</span>
           <small>
@@ -98,25 +203,10 @@ export function SettingsDialog({
             )}
           </small>
         </div>
-        <div className="segmented">
-          {(
-            [
-              ['dark', t('Dark')],
-              ['light', t('Daylight')],
-              ['rose', t('Rosé')],
-              ['forest', t('Forest')]
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              className={s.theme === value ? 'active' : ''}
-              aria-pressed={s.theme === value}
-              onClick={() => s.set({ theme: value })}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <ThemeDropdown
+          theme={s.theme}
+          onSelect={(theme) => s.set({ theme })}
+        />
       </div>
       <div className="setting-row stack" role="group" aria-label={t('Board typeface')}>
         <div className="setting-text">
@@ -187,27 +277,30 @@ export function SettingsDialog({
             <span>{t('The two colours')}</span>
             <small>{t('Paint the sets with these in Colour mode: keys {a} and {b}', { a: s.setColors[0] + 1, b: s.setColors[1] + 1 })}</small>
           </div>
-          {([0, 1] as const).map((side) => (
-            <div key={side} className="swatch-row" role="radiogroup" aria-label={side === 0 ? t('First set') : t('Second set')}>
-              {PALETTE.map((colour, k) => (
-                <button
-                  key={k}
-                  role="radio"
-                  aria-checked={s.setColors[side] === k}
-                  aria-label={t('Colour {n}', { n: k + 1 })}
-                  className={`swatch${s.setColors[side] === k ? ' on' : ''}`}
-                  style={{ background: colour }}
-                  onClick={() => {
-                    const next: [number, number] = [...s.setColors];
-                    // the other set's colour: the two swap
-                    if (next[1 - side] === k) next[1 - side] = next[side];
-                    next[side] = k;
-                    s.set({ setColors: next });
-                  }}
-                />
-              ))}
-            </div>
-          ))}
+          {([0, 1] as const).map((side) => {
+            const palette = s.customPalette && s.customPalette.length === 9 ? s.customPalette : PALETTE;
+            return (
+              <div key={side} className="swatch-row" role="radiogroup" aria-label={side === 0 ? t('First set') : t('Second set')}>
+                {palette.map((colour, k) => (
+                  <button
+                    key={k}
+                    role="radio"
+                    aria-checked={s.setColors[side] === k}
+                    aria-label={t('Colour {n}', { n: k + 1 })}
+                    className={`swatch${s.setColors[side] === k ? ' on' : ''}`}
+                    style={{ background: colour }}
+                    onClick={() => {
+                      const next: [number, number] = [...s.setColors];
+                      // the other set's colour: the two swap
+                      if (next[1 - side] === k) next[1 - side] = next[side];
+                      next[side] = k;
+                      s.set({ setColors: next });
+                    }}
+                  />
+                ))}
+              </div>
+            );
+          })}
         </div>
       )}
       <Toggle
@@ -265,7 +358,7 @@ export function SettingsDialog({
         onChange={(v) => s.set({ showPoodle: v })}
       />
 
-      <h4 className="setting-group">{t('Pattern Lab & My Techniques')}</h4>
+      <h4 className="setting-group">{t('Pattern Scanner & My Techniques')}</h4>
       <div className="setting-row">
         <div className="setting-text">
           <span>{t('My Techniques')}</span>
@@ -393,16 +486,16 @@ const SHORTCUTS: [string, string][] = [
   ],
   [msg('Hold Shift'), msg('Corner-mark mode while held')],
   [msg('Hold Ctrl or Alt'), msg('Centre-mark mode while held')],
+  [msg('Hold Z'), msg('Colour mode while held (press 1–9 to colour)')],
   [msg('Hold Shift + Ctrl/Alt'), msg('Colour mode while held')],
   ['Space', msg('Cycle through the modes')],
-  ['Z / X / C / V', msg('Switch mode: Digit / Corner / Centre / Colour')],
   [msg('Arrow keys'), msg('Move the selection (Shift extends it)')],
   [msg('Click + drag'), msg('Select multiple cells')],
   [msg('Touch: drag'), msg('Select a run of cells (on a phone a vertical swipe scrolls the page: rest a moment first to drag in any direction)')],
   [msg('Touch: hold a number'), msg('Enter it as a corner mark, whatever the mode')],
   [msg('Alt + drag'), msg('Select a rectangle, from the first cell to the one under the pointer (Option on a Mac)')],
   [msg('Ctrl/Cmd + click'), msg('Add cells to the selection')],
-  ['M', msg('Multi-select on or off: a tap adds or removes a cell, a drag paints')],
+  [msg('Multi (button)'), msg('Multi-select: a tap adds or removes a cell, a drag paints')],
   ['B', msg('Highlight cells with two candidates on or off')],
   [msg('Double-click / long-press a digit'), msg('Select every cell with that digit')],
   ['Backspace / Delete', msg('Erase the active layer: hold Shift for corner marks, Ctrl for centre, both for colours')],

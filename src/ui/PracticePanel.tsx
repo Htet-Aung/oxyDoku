@@ -21,6 +21,7 @@ import { Step, CellDigit } from '../engine/steps';
 import { buildProgressiveHints } from '../engine/progressiveHints';
 import { useT, rich } from '../content/i18n';
 import { getTechniqueConcept } from '../content/concepts';
+import { CloseIcon, LightbulbIcon, CheckIcon } from './Icons';
 
 interface PracticePanelProps {
   onNextPuzzle: () => void;
@@ -176,7 +177,7 @@ export function PracticePanel({
           onClick={exitPractice}
           title={t('Exit practice')}
         >
-          ✕
+          <CloseIcon size={14} />
         </button>
       </div>
 
@@ -265,7 +266,7 @@ export function PracticePanel({
                     onClick={() => toggleUserCell(c)}
                     title={t('Click to remove cell')}
                   >
-                    {cellName(c)} ✕
+                    {cellName(c)} <CloseIcon size={11} />
                   </span>
                 ))}
               </div>
@@ -308,7 +309,7 @@ export function PracticePanel({
             disabled={currentHintLevel >= 4}
             title={t('Get a progressive hint without revealing the whole answer')}
           >
-            💡 {t('Hint')} {currentHintLevel > 0 ? `(${currentHintLevel}/4)` : ''}
+            <LightbulbIcon size={14} /> {t('Hint')} {currentHintLevel > 0 ? `(${currentHintLevel}/4)` : ''}
           </button>
           {currentHintLevel >= 3 && exerciseState !== 'revealed' && (
             <button
@@ -337,7 +338,7 @@ export function PracticePanel({
             onClick={handleSubmit}
             disabled={selectedCells.length === 0 && selectedDigits.length === 0}
           >
-            ✓ {t('Check Answer')}
+            <CheckIcon size={14} /> {t('Check Answer')}
           </button>
         </div>
       </div>

@@ -1391,8 +1391,9 @@ test.describe('the set tracker', () => {
       const c = await cellBox(page, from);
       await page.mouse.click(c.x, c.y);
       for (let i = 0; i < 8; i++) await page.keyboard.press(`Shift+${key}`);
-      await page.keyboard.press('KeyV');
+      await page.keyboard.down('KeyZ');
       await page.keyboard.press(`Digit${colour}`);
+      await page.keyboard.up('KeyZ');
     };
     await paint(9, 'ArrowRight', '6');
     await expect(tracker).toContainText('Paint the other set');
@@ -1424,13 +1425,14 @@ test.describe('the set tracker', () => {
     });
     await page.goto(`/#p=${EASY}`);
     await expect(page.locator('svg.board')).toBeVisible();
-    await page.keyboard.press('KeyV');
     return async (cells: number[], colour: string) => {
       for (const cell of cells) {
         await page.keyboard.press('Escape');
         const c = await cellBox(page, cell);
         await page.mouse.click(c.x, c.y);
+        await page.keyboard.down('KeyZ');
         await page.keyboard.press(`Digit${colour}`);
+        await page.keyboard.up('KeyZ');
       }
     };
   }
@@ -1586,7 +1588,6 @@ test.describe('the set tracker', () => {
     await expect(proof).toHaveCount(1);
 
     // row 3 painted into the first set, the proof still open: sixteen against seven, no claim and no proof
-    await page.keyboard.press('KeyV');
     await toggle([18, 19, 20, 21, 22, 23, 24, 25, 26], '6');
     await expect(tracker).toContainText('Not the same digits: 16 cells against 7');
     await expect(proof).toHaveCount(0);

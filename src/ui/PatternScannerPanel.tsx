@@ -17,6 +17,10 @@ import {
   ReasoningConceptId,
   TECHNIQUE_TAXONOMY
 } from '../content/concepts';
+import { walkFrames } from '../engine/hintFrames';
+import { stepText } from '../content/eureka';
+import { copyText } from './send';
+import { MicroscopeIcon, GearIcon, SearchIcon, GraduationCapIcon, CheckIcon, LightbulbIcon } from './Icons';
 
 const ALL_CATEGORIES: Category[] = [
   'Singles',
@@ -89,8 +93,14 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
     checkStaleness();
   }, [cells, autoCandidates, markContract, checkStaleness]);
 
+  const stage = useGame((s) => s.hintStage);
+  const walkIndex = useGame((s) => s.walkIndex);
+  const walkHint = useGame((s) => s.walkHint);
+  const revealHint = useGame((s) => s.revealHint);
+
   const [showFilters, setShowFilters] = useState(false);
   const [detailInstanceId, setDetailInstanceId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Count of detected instances that are unfamiliar to the user
   const unfamiliarCount = useMemo(() => {
@@ -190,7 +200,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
       <div className="hint-head pattern-scanner-head">
         <div className="scanner-title-wrap">
           <span className="scanner-badge-icon" aria-hidden="true">
-            🔬
+            <MicroscopeIcon size={16} />
           </span>
           <strong>{t('Pattern Scanner')}</strong>
           {totalInstances > 0 && (
@@ -223,7 +233,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
         {!mastery?.setupCompleted && (
           <div className="scanner-setup-banner">
             <div className="scanner-setup-text">
-              <strong>{t('Welcome to Pattern Lab!')}</strong>
+              <strong>{t('Welcome to Pattern Scanner!')}</strong>
               <p>{t('Choose a starting preset to focus your practice, or customize your knowledge:')}</p>
             </div>
             <div className="scanner-setup-presets">
@@ -241,7 +251,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
               </button>
               {onOpenMastery && (
                 <button className="ghost mini accent" onClick={onOpenMastery}>
-                  ⚙ {t('My Techniques')}
+                  <GearIcon size={13} /> {t('My Techniques')}
                 </button>
               )}
             </div>
@@ -284,7 +294,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
               )}
             </span>
             <button className="ghost mini scanner-discovery-pill-btn" onClick={toggleDiscoveryMode}>
-              🔍 {t('Explore in Discovery Mode')}
+              <SearchIcon size={12} /> {t('Explore in Discovery Mode')}
             </button>
           </div>
         )}
@@ -324,7 +334,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
             onClick={toggleDiscoveryMode}
             title={t('Discovery Mode: show unfamiliar techniques with explanations')}
           >
-            🔍 {t('Discovery')}
+            <SearchIcon size={13} /> {t('Discovery')}
           </button>
 
           {/* Options & My Techniques button */}
@@ -333,7 +343,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
             onClick={() => setShowFilters(!showFilters)}
             title={t('Scan filters and options')}
           >
-            ⚙ {t('Options')}
+            <GearIcon size={13} /> {t('Options')}
           </button>
 
           {onOpenMastery && (
@@ -342,7 +352,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
               onClick={onOpenMastery}
               title={t('Configure My Techniques')}
             >
-              🎓 {t('My Techniques ({n})', { n: masteryStats.knownCount })}
+              <GraduationCapIcon size={13} /> {t('My Techniques ({n})', { n: masteryStats.knownCount })}
             </button>
           )}
         </div>
@@ -447,7 +457,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                 onClick={() => applySelectedDeduction()}
                 title={t('Apply this deduction to the board')}
               >
-                ✓ {t('Apply deduction')}
+                <CheckIcon size={13} /> {t('Apply deduction')}
               </button>
             </div>
           </div>
@@ -470,7 +480,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                 <p>{t('No patterns match your search filter.')}</p>
                 {unfamiliarCount > 0 && !filter.discoveryMode && (
                   <button className="ghost scanner-discovery-pill-btn" onClick={toggleDiscoveryMode}>
-                    🔍 {t('Try Discovery Mode ({n} unfamiliar patterns)', { n: unfamiliarCount })}
+                    <SearchIcon size={12} /> {t('Try Discovery Mode ({n} unfamiliar patterns)', { n: unfamiliarCount })}
                   </button>
                 )}
                 <button className="ghost scanner-link-btn" onClick={resetFilter}>
@@ -482,7 +492,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                 <p>{t('No patterns found in this position with current techniques.')}</p>
                 {unfamiliarCount > 0 && !filter.discoveryMode && (
                   <button className="ghost scanner-discovery-pill-btn" onClick={toggleDiscoveryMode}>
-                    🔍 {t('Try Discovery Mode ({n} unfamiliar patterns)', { n: unfamiliarCount })}
+                    <SearchIcon size={12} /> {t('Try Discovery Mode ({n} unfamiliar patterns)', { n: unfamiliarCount })}
                   </button>
                 )}
                 <button className="ghost scanner-link-btn" onClick={() => runScan()}>
@@ -520,7 +530,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                       <span className="scanner-count-pill">{instances.length}</span>
                       {isUnfamiliar && (
                         <span className="scanner-discovery-badge-tag" title={t('Discovered outside your known techniques')}>
-                          🔍 {t('Discovery')}
+                          <SearchIcon size={12} /> {t('Discovery')}
                         </span>
                       )}
                     </div>
@@ -532,6 +542,8 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                       {instances.map((inst) => {
                         const isSelected = selectedInstanceId === inst.id;
                         const isDetailOpen = detailInstanceId === inst.id;
+                        const frames = isSelected ? walkFrames(inst.step) : [];
+                        const walking = isSelected && stage === 'walk' && frames.length > 0;
                         const otherExplanationsCount =
                           (scanResult?.byConclusion[inst.conclusionKey]?.length ?? 1) - 1;
                         const concept = getTechniqueConcept(inst.tech);
@@ -546,7 +558,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                             {isUnfamiliar && (
                               <div className="scanner-instance-discovery-banner">
                                 <div className="discovery-banner-head">
-                                  <span>💡 {t('Discovery Pattern')}</span>
+                                  <span><LightbulbIcon size={13} /> {t('Discovery Pattern')}</span>
                                   <span className="discovery-concept-tag">{t(concept.name)}</span>
                                 </div>
                                 <div className="discovery-quick-actions">
@@ -557,7 +569,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                                       setTechniqueFamiliarity(inst.tech, 'learning');
                                     }}
                                   >
-                                    🎓 {t('Mark as Learning')}
+                                    <GraduationCapIcon size={12} /> {t('Mark as Learning')}
                                   </button>
                                   <button
                                     className="ghost mini"
@@ -566,7 +578,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                                       setTechniqueFamiliarity(inst.tech, 'known');
                                     }}
                                   >
-                                    ✓ {t('Mark as Known')}
+                                    <CheckIcon size={12} /> {t('Mark as Known')}
                                   </button>
                                 </div>
                               </div>
@@ -586,12 +598,12 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                               <div className="scanner-instance-tags">
                                 {fam === 'learning' && (
                                   <span className="scanner-fam-pill learning" title={t('Technique you are learning')}>
-                                    🎓 {t('Learning')}
+                                    <GraduationCapIcon size={12} /> {t('Learning')}
                                   </span>
                                 )}
                                 {fam === 'known' && (
                                   <span className="scanner-fam-pill known" title={t('Technique you know')}>
-                                    ✓ {t('Known')}
+                                    <CheckIcon size={12} /> {t('Known')}
                                   </span>
                                 )}
                                 {otherExplanationsCount > 0 && (
@@ -626,6 +638,45 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                               >
                                 {isDetailOpen ? t('Hide explanation') : t('Explain pattern')}
                               </button>
+                              {isSelected && frames.length > 1 && !walking && (
+                                <button
+                                  className="ghost scanner-link-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    walkHint();
+                                  }}
+                                  title={t('Walk through it')}
+                                >
+                                  {t('Walk through it')}
+                                </button>
+                              )}
+                              {isSelected && walking && (
+                                <button
+                                  className="ghost scanner-link-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    revealHint();
+                                  }}
+                                  title={t('Reveal')}
+                                >
+                                  {t('Show all')}
+                                </button>
+                              )}
+                              <button
+                                className="ghost scanner-link-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void copyText(stepText(inst.step)).then((outcome) => {
+                                    if (outcome === 'copied') {
+                                      setCopiedId(inst.id);
+                                      setTimeout(() => setCopiedId(null), 2000);
+                                    }
+                                  });
+                                }}
+                                title={t('Copy this step as one line of notation (Eureka for a chain), the way the forums write it')}
+                              >
+                                {copiedId === inst.id ? <><CheckIcon size={14} /> {t('Copied')}</> : t('Copy step')}
+                              </button>
                               {onLearn && (
                                 <button
                                   className="ghost scanner-link-btn"
@@ -640,9 +691,47 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                               )}
                             </div>
 
-                            {isDetailOpen && (
+                            {(isDetailOpen || walking) && (
                               <div className="scanner-instance-detail">
-                                <p className="scanner-desc-text">{inst.step.description}</p>
+                                {walking && frames.length > 0 ? (
+                                  <div className="hint-walk scanner-walk-box" aria-live="polite">
+                                    <p className="hint-walk-text">
+                                      {frames[Math.min(walkIndex, frames.length - 1)]?.text}
+                                    </p>
+                                    <div className="hint-walk-nav">
+                                      <button
+                                        className="ghost"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          walkHint(-1);
+                                        }}
+                                        disabled={walkIndex === 0}
+                                        aria-label={t('Previous')}
+                                      >
+                                        ◀
+                                      </button>
+                                      <span className="hint-walk-count">
+                                        {t('{i} of {n}', {
+                                          i: Math.min(walkIndex, frames.length - 1) + 1,
+                                          n: frames.length
+                                        })}
+                                      </span>
+                                      <button
+                                        className="ghost"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          walkHint(1);
+                                        }}
+                                        disabled={walkIndex >= frames.length - 1}
+                                        aria-label={t('Next')}
+                                      >
+                                        ▶
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="scanner-desc-text">{inst.step.description}</p>
+                                )}
                                 <p className="scanner-concept-note">
                                   <strong>{t('Reasoning Concept:')}</strong> {t(concept.name)} — {t(concept.summary)}
                                 </p>
@@ -724,6 +813,8 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                         const fam = getFamiliarity(mastery, inst.tech);
                         const isUnfamiliar = fam === 'unfamiliar';
                         const concept = getTechniqueConcept(inst.tech);
+                        const frames = isSelected ? walkFrames(inst.step) : [];
+                        const walking = isSelected && stage === 'walk' && frames.length > 0;
 
                         return (
                           <div
@@ -735,7 +826,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                               <span className="scanner-tech-badge">
                                 <strong>{t.tech(inst.tech)}</strong>
                                 {isUnfamiliar && (
-                                  <span className="scanner-discovery-badge-tag">🔍 {t('Discovery')}</span>
+                                  <span className="scanner-discovery-badge-tag"><SearchIcon size={12} /> {t('Discovery')}</span>
                                 )}
                               </span>
                               <div className="scanner-instance-tags">
@@ -745,10 +836,10 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                                   })}
                                 </span>
                                 {fam === 'learning' && (
-                                  <span className="scanner-fam-pill learning">🎓 {t('Learning')}</span>
+                                  <span className="scanner-fam-pill learning"><GraduationCapIcon size={12} /> {t('Learning')}</span>
                                 )}
                                 {fam === 'known' && (
-                                  <span className="scanner-fam-pill known">✓ {t('Known')}</span>
+                                  <span className="scanner-fam-pill known"><CheckIcon size={12} /> {t('Known')}</span>
                                 )}
                               </div>
                             </div>
@@ -769,6 +860,45 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                               >
                                 {isDetailOpen ? t('Hide explanation') : t('Explain pattern')}
                               </button>
+                              {isSelected && frames.length > 1 && !walking && (
+                                <button
+                                  className="ghost scanner-link-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    walkHint();
+                                  }}
+                                  title={t('Walk through it')}
+                                >
+                                  {t('Walk through it')}
+                                </button>
+                              )}
+                              {isSelected && walking && (
+                                <button
+                                  className="ghost scanner-link-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    revealHint();
+                                  }}
+                                  title={t('Reveal')}
+                                >
+                                  {t('Show all')}
+                                </button>
+                              )}
+                              <button
+                                className="ghost scanner-link-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void copyText(stepText(inst.step)).then((outcome) => {
+                                    if (outcome === 'copied') {
+                                      setCopiedId(inst.id);
+                                      setTimeout(() => setCopiedId(null), 2000);
+                                    }
+                                  });
+                                }}
+                                title={t('Copy this step as one line of notation (Eureka for a chain), the way the forums write it')}
+                              >
+                                {copiedId === inst.id ? <><CheckIcon size={14} /> {t('Copied')}</> : t('Copy step')}
+                              </button>
                               {onLearn && (
                                 <button
                                   className="ghost scanner-link-btn"
@@ -783,9 +913,47 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                               )}
                             </div>
 
-                            {isDetailOpen && (
+                            {(isDetailOpen || walking) && (
                               <div className="scanner-instance-detail">
-                                <p className="scanner-desc-text">{inst.step.description}</p>
+                                {walking && frames.length > 0 ? (
+                                  <div className="hint-walk scanner-walk-box" aria-live="polite">
+                                    <p className="hint-walk-text">
+                                      {frames[Math.min(walkIndex, frames.length - 1)]?.text}
+                                    </p>
+                                    <div className="hint-walk-nav">
+                                      <button
+                                        className="ghost"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          walkHint(-1);
+                                        }}
+                                        disabled={walkIndex === 0}
+                                        aria-label={t('Previous')}
+                                      >
+                                        ◀
+                                      </button>
+                                      <span className="hint-walk-count">
+                                        {t('{i} of {n}', {
+                                          i: Math.min(walkIndex, frames.length - 1) + 1,
+                                          n: frames.length
+                                        })}
+                                      </span>
+                                      <button
+                                        className="ghost"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          walkHint(1);
+                                        }}
+                                        disabled={walkIndex >= frames.length - 1}
+                                        aria-label={t('Next')}
+                                      >
+                                        ▶
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="scanner-desc-text">{inst.step.description}</p>
+                                )}
                                 <p className="scanner-concept-note">
                                   <strong>{t('Reasoning Concept:')}</strong> {t(concept.name)} — {t(concept.summary)}
                                 </p>

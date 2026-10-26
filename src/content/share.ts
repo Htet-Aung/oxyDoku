@@ -21,7 +21,9 @@
 // build and the app all import it, so it stays light (the catalogue, the
 // name tables and home.ts).
 import { TECHS, LEVELS, Tech, Level, asLevel } from '../engine/ratings';
+import { emptyGrid, setValue } from '../engine/board';
 import type { Lang } from '../state/settings';
+import type { MarkContract } from '../state/gameStore';
 import { techSlug, techFromParam } from './slugs';
 import { SITE, homePath, ogCard, fillTemplate } from './home';
 import { parseDailyUrl, dailyPath, findDaily, dailyNumber } from './dailies';
@@ -117,6 +119,102 @@ export function sharePath(p: ShareParams): string {
 
 /** the full share address, on the site unless an origin (the dev server's) is given */
 export const shareUrl = (p: ShareParams, origin = SITE) => origin + sharePath(p);
+
+/** what a cell needs to be exported to SudokuWiki */
+export interface SudokuWikiCell {
+  given: boolean;
+  value: number;
+  corner?: number;
+  center?: number;
+  excluded?: number;
+}
+
+export interface SudokuWikiOptions {
+  autoCandidates?: boolean;
+  markContract?: MarkContract;
+}
+
+export function hasCandidateProgress(
+  cells: readonly { corner?: number; center?: number; excluded?: number }[]
+): boolean {
+  return cells.some((c) => ((c.corner ?? 0) | (c.center ?? 0) | (c.excluded ?? 0)) !== 0);
+}
+
+/**
+ * Encodes the board into Andrew Stuart's SudokuWiki Version 'B' (v2.0) packed format.
+ * Header: 'S9B', followed by 81 cells encoded as 2-character base-36 strings:
+ * - Given clue (1..9): 1..9 -> '01'..'09'
+ * - User-entered solved cell (1..9): 10..18 -> '0a'..'0i'
+ * - Unsolved cell with candidate mask (1..511): mask + 18 -> base-36 (2 chars, '0j'..'ep')
+ * - Empty cell with no candidates: '00'
+ */
+export function makeSudokuWikiPackedString(
+  cells: readonly SudokuWikiCell[],
+  autoCandidates = false,
+  _contract?: MarkContract
+): string {
+  const g = emptyGrid();
+  for (let i = 0; i < 81; i++) {
+    if (cells[i].value) setValue(g, i, cells[i].value);
+  }
+
+  let body = '';
+  for (let i = 0; i < 81; i++) {
+    const c = cells[i];
+    if (c.value > 0) {
+      const n = c.given ? c.value : c.value + 9;
+      body += n.toString(36).padStart(2, '0');
+    } else {
+      let candMask: number;
+      if (autoCandidates) {
+        candMask = g.cands[i] & ~(c.excluded ?? 0);
+      } else {
+        const marks = ((c.corner ?? 0) | (c.center ?? 0)) & ~(c.excluded ?? 0);
+        candMask = marks > 0 ? marks : (g.cands[i] & ~(c.excluded ?? 0));
+      }
+      if (candMask > 0) {
+        const n = (candMask & 0x1ff) + 18;
+        body += n.toString(36).padStart(2, '0');
+      } else {
+        body += '00';
+      }
+    }
+  }
+
+  return `S9B${body}`;
+}
+
+/**
+ * URL to open the puzzle in Andrew Stuart's SudokuWiki solver (sudokuwiki.org).
+ * If includeEntries is true and candidate notes or eliminations are present,
+ * encodes the exact board and candidate state into the Version 'B' packed format.
+ * Otherwise, falls back to the clean 81-character string format.
+ */
+export function sudokuWikiUrl(
+  cells: readonly SudokuWikiCell[],
+  includeEntries = false,
+  options?: SudokuWikiOptions
+): string {
+  if (includeEntries && hasCandidateProgress(cells)) {
+    const packed = makeSudokuWikiPackedString(cells, options?.autoCandidates, options?.markContract);
+    return `https://www.sudokuwiki.org/sudoku.htm?bd=${packed}`;
+  }
+  const digits = cells
+    .map((c) => {
+      const val = includeEntries ? c.value : (c.given ? c.value : 0);
+      return val >= 1 && val <= 9 ? String(val) : '0';
+    })
+    .join('');
+  return `https://www.sudokuwiki.org/sudoku.htm?bd=${digits}`;
+}
+
+/**
+ * URL to open an 81-character puzzle string in Andrew Stuart's SudokuWiki solver.
+ */
+export function sudokuWikiUrlFromPuzzle(puzzle: string): string {
+  const digits = puzzle.replace(/[^0-9.]/g, '').replace(/\./g, '0');
+  return `https://www.sudokuwiki.org/sudoku.htm?bd=${digits}`;
+}
 
 /**
  * The techniques a link names, given those the puzzle's solve path plays

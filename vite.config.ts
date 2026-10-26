@@ -230,8 +230,8 @@ export default defineConfig({
         globIgnores: ['learn/**', '**/404.html']
       },
       manifest: {
-        name: 'sudokUI',
-        short_name: 'sudokUI',
+        name: 'oxyDoku',
+        short_name: 'oxyDoku',
         description:
           'Play sudoku, rate the difficulty of any puzzle and practise solving techniques with hints that explain every step.',
         lang: 'en',

@@ -1,7 +1,7 @@
 // How the difficulty rating works, in words. One source for the in-app
 // Learn dialog and the static /learn/rating/ page. Every claim here mirrors
 // ratePuzzle() in engine/humanSolver.ts and the tables in engine/ratings.ts.
-import { LEVELS, LEVEL_MAX_SCORE, Level, LevelPick, BEGINNER_MAX_SCORE, NIGHTMARE_MIN_SCORE } from '../engine/ratings';
+import { LEVELS, LEVEL_MAX_SCORE, Level, LevelPick, BEGINNER_MAX_SCORE, NIGHTMARE_MIN_SCORE, PICKS } from '../engine/ratings';
 
 export const RATING_SUMMARY =
   'sudokUI rates a puzzle by solving it the way a person would. At every step it takes the easiest technique that makes progress and adds that technique’s score. The total is the HoDoKu rating.';
@@ -66,10 +66,9 @@ export function rangeOf(
 ): string {
   if (pick === 'Beginner') return `${levelOf('Easy')}, ${upTo(BEGINNER_MAX_SCORE)}`;
   if (pick === 'Nightmare') return `${levelOf('Extreme')}, ${above(NIGHTMARE_MIN_SCORE)}`;
-  return LEVELS.indexOf(pick) === LEVELS.length - 1 ? noLimit : upTo(LEVEL_MAX_SCORE[pick]);
+  if (pick === 'Extreme') return upTo(NIGHTMARE_MIN_SCORE);
+  return upTo(LEVEL_MAX_SCORE[pick]);
 }
 
-/** the levels and picks in a table: each pick right under the level it lies in */
-export const TABLE_ORDER: LevelPick[] = LEVELS.flatMap((l): LevelPick[] =>
-  l === 'Easy' ? ['Easy', 'Beginner'] : l === 'Extreme' ? ['Extreme', 'Nightmare'] : [l]
-);
+/** the levels and picks in a table in ascending difficulty order */
+export const TABLE_ORDER: LevelPick[] = PICKS;

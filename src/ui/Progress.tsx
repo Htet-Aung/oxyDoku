@@ -13,6 +13,7 @@ import { useT, rich, Translator } from '../content/i18n';
 import { HubTabs } from './HubTabs';
 import { useBandWords } from './BandTable';
 import type { LearnTarget } from './Learn';
+import { FlameIcon, CheckIcon } from './Icons';
 
 /**
  * "34% of puzzles", "1 in 120 puzzles", or '' for a technique the solver
@@ -33,7 +34,7 @@ const clock = (ms: number) => {
   return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
 };
 
-const MARK: Record<PathRow['state'], string> = { learned: '✓', started: '◐', next: '▶', ahead: '○' };
+const renderMark = (state: PathRow['state']) => (state === 'learned' ? <CheckIcon size={12} /> : state === 'started' ? '◐' : state === 'next' ? '▶' : '○');
 
 export function ProgressDialog({
   onClose,
@@ -99,7 +100,7 @@ export function ProgressDialog({
             {rows.map((r) => (
               <li key={r.tech} className={`path-row path-${r.state}`}>
                 <span className="path-mark" aria-hidden="true">
-                  {MARK[r.state]}
+                  {renderMark(r.state)}
                 </span>
                 <span className="path-name">
                   <button className="learn-link" onClick={() => onLearn({ tab: 'techniques', tech: r.tech })}>
@@ -151,7 +152,7 @@ export function ProgressDialog({
             </tbody>
           </table>
           <p className="dialog-note">
-            🔥{' '}
+            <FlameIcon size={14} />{' '}
             {/* each count agrees its own word, so four whole sentences */}
             {t(
               streak === 1

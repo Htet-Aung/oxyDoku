@@ -14,6 +14,7 @@ import { stepText } from '../content/eureka';
 import { copyText } from './send';
 import { useT, rich, Translator } from '../content/i18n';
 import { useLearnLocale } from './useLearnLocale';
+import { CheckIcon } from './Icons';
 
 const KEY_SEEN = 'sudokui-cellkey-seen';
 
@@ -306,7 +307,7 @@ export function HintPanel({ onLearn, onReport }: { onLearn: (tech: Tech) => void
               onClick={copyStep}
               title={t('Copy this step as one line of notation (Eureka for a chain), the way the forums write it')}
             >
-              {copied ? `✓ ${t('Copied')}` : t('Copy step')}
+              {copied ? <><CheckIcon size={14} /> {t('Copied')}</> : t('Copy step')}
             </button>
             {/* a wrong hint teaches something false: the report carries it, the board and the settings it was found under */}
             {onReport && (

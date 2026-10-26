@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "sudokUI Live Sync for Sudoku Exchange",
+  "version": "1.0.1",
+  "description": "Local-only live synchronization bridge from Sudoku Exchange to sudokUI Pattern Lab.",
+  "permissions": ["storage", "scripting"],
+  "host_permissions": [
+    "*://sudokuexchange.com/*",
+    "*://*.sudokuexchange.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "http://localhost:5173/*",
+    "http://localhost:5174/*",
+    "http://localhost:4173/*",
+    "http://127.0.0.1:5173/*",
+    "http://127.0.0.1:5174/*",
+    "http://127.0.0.1:4173/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://sudokuexchange.com/*",
+        "*://*.sudokuexchange.com/*"
+      ],
+      "js": ["content-sudokuexchange.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "http://localhost:5173/*",
+        "http://localhost:5174/*",
+        "http://localhost:4173/*",
+        "http://127.0.0.1:5173/*",
+        "http://127.0.0.1:4174/*",
+        "http://127.0.0.1:4173/*"
+      ],
+      "js": ["content-sudokui.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

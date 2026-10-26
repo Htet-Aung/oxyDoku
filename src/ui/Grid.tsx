@@ -5,7 +5,7 @@
 // arrows and grid lines. Pointer events implement drag multi-select.
 import React, { useEffect, useRef } from 'react';
 import { useGame, engineGrid, CellState } from '../state/gameStore';
-import { useSettings } from '../state/settings';
+import { useSettings, DEFAULT_PALETTE } from '../state/settings';
 import { bivaluePairs } from '../state/bivalue';
 import { bit, digitsOf, PEERS, UNITS } from '../engine/board';
 import { ChainLink, CellDigit } from '../engine/steps';
@@ -20,17 +20,7 @@ let dragTipShown = false;
 
 const SIZE = 100;
 const M = 4; // outer margin
-const PALETTE = [
-  '#e05563',
-  '#e8934a',
-  '#e6c74c',
-  '#67b96a',
-  '#4fc1b0',
-  '#5b8fe0',
-  '#9b74d8',
-  '#d873b8',
-  '#9aa3b5'
-];
+const PALETTE = DEFAULT_PALETTE;
 
 /** candidate position inside a cell (3x3 layout, digit 1 top-left) */
 const candX = (d: number) => 22 + ((d - 1) % 3) * 28;
@@ -247,7 +237,8 @@ const PERIMETER: [number, number][] = [
   [50, 30], // top-middle
   [50, 92], // bottom-middle
   [21, 62], // left-middle
-  [79, 62] // right-middle
+  [79, 62], // right-middle
+  [50, 62]  // center (9th slot fallback)
 ];
 
 /**
@@ -268,7 +259,7 @@ function renderMarks(
   x: number,
   y: number,
   marks: Map<number, string> | undefined,
-  hlDigit = 0,
+  hlDigits: Set<number> | number = 0,
   frame = false,
   /** the cell is ringed as a bivalue cell: its two digits a touch heavier */
   pair = false
@@ -279,12 +270,14 @@ function renderMarks(
 
   // same-digit highlight (hint circles win): the held/selected digit lights
   // up wherever the player has pencilled it
-  const hl = (d: number) => d === hlDigit && !marks?.has(d);
+  const hlSet = typeof hlDigits === 'number' ? (hlDigits > 0 ? new Set([hlDigits]) : new Set<number>()) : hlDigits;
+  const hl = (d: number) => hlSet.has(d) && !marks?.has(d);
 
   const gridText = (d: number, bold: boolean) => (
     <React.Fragment key={`g${d}`}>
       {hl(d) && frame && (
         <rect
+          className="cand-frame cand-frame-hl"
           x={x + candX(d) - 11}
           y={y + candY(d) - 19}
           width={22}
@@ -296,6 +289,7 @@ function renderMarks(
         />
       )}
       <text
+        className={hl(d) ? 'cand-text-hl' : undefined}
         x={x + candX(d)}
         y={y + candY(d)}
         textAnchor="middle"
@@ -312,7 +306,7 @@ function renderMarks(
   const lineTspans = (ds: number[]) =>
     ds.map((d) =>
       hl(d) ? (
-        <tspan key={d} fill="var(--accent)" fontWeight={700}>
+        <tspan key={d} className="cand-text-hl" fill="var(--accent)" fontWeight={700}>
           {d}
         </tspan>
       ) : (
@@ -341,35 +335,40 @@ function renderMarks(
       </text>
     ) : null;
 
+  const cornerElements = cornerDs.map((d, k) => {
+    const slot = PERIMETER[k % PERIMETER.length];
+    return (
+      <React.Fragment key={`p${d}`}>
+        {hl(d) && frame && (
+          <rect
+            x={x + slot[0] - 10}
+            y={y + slot[1] - 17}
+            width={20}
+            height={22}
+            rx={5}
+            fill="none"
+            stroke="var(--accent)"
+            strokeWidth={1.6}
+          />
+        )}
+        <text
+          x={x + slot[0]}
+          y={y + slot[1]}
+          textAnchor="middle"
+          fontSize={21}
+          fontWeight={hl(d) ? 700 : 600}
+          fill={hl(d) ? 'var(--accent)' : 'var(--cand)'}
+        >
+          {d}
+        </text>
+      </React.Fragment>
+    );
+  });
+
   if (cornerDs.length && centerDs.length) {
     return (
       <>
-        {cornerDs.slice(0, 8).map((d, k) => (
-          <React.Fragment key={`p${d}`}>
-            {hl(d) && frame && (
-              <rect
-                x={x + PERIMETER[k][0] - 10}
-                y={y + PERIMETER[k][1] - 17}
-                width={20}
-                height={22}
-                rx={5}
-                fill="none"
-                stroke="var(--accent)"
-                strokeWidth={1.6}
-              />
-            )}
-            <text
-              x={x + PERIMETER[k][0]}
-              y={y + PERIMETER[k][1]}
-              textAnchor="middle"
-              fontSize={21}
-              fontWeight={hl(d) ? 700 : 600}
-              fill={hl(d) ? 'var(--accent)' : 'var(--cand)'}
-            >
-              {d}
-            </text>
-          </React.Fragment>
-        ))}
+        {cornerElements}
         {centerLine ?? (
           <text
             key="cl2"
@@ -386,7 +385,7 @@ function renderMarks(
     );
   }
 
-  if (cornerDs.length) return <>{cornerDs.map((d) => gridText(d, true))}</>;
+  if (cornerDs.length) return <>{cornerElements}</>;
 
   // centre only: line while it reads like a note, grid once it's a full list
   if (centerDs.length <= 4) return centerLine;
@@ -420,6 +419,63 @@ export function describeSelection(
   return t('Row {row}, column {col}: empty.', where);
 }
 
+/**
+ * Calculates the cells that should receive the peer highlight tint.
+ *
+ * Rules:
+ * 1. If highlightPeers is false or selection is empty, returns an empty set.
+ * 2. If exactly one cell is selected:
+ *    - Its row, column, and 3x3 box peers are highlighted (cursor crosshair for empty
+ *      cells, or digit sightlines for a placed digit).
+ * 3. If two or more cells are selected:
+ *    - When the filled cells in the selection share the same digit (at least 2 filled
+ *      cells, e.g. two or more 1s for crosshatching), the union of all their covered
+ *      squares (rows, columns, and 3x3 boxes) is highlighted.
+ *    - If no cells are filled or multiple distinct digits are selected, returns empty set.
+ */
+export function computePeerHighlights(
+  cells: readonly { value: number }[],
+  selection: readonly number[],
+  highlightPeers: boolean
+): Set<number> {
+  const peerSet = new Set<number>();
+  if (!highlightPeers || !selection.length) return peerSet;
+
+  const addUnitPeers = (cell: number) => {
+    const r = Math.floor(cell / 9);
+    const c = cell % 9;
+    for (let k = 0; k < 9; k++) {
+      peerSet.add(r * 9 + k);
+      peerSet.add(k * 9 + c);
+    }
+    const br = Math.floor(r / 3) * 3;
+    const bc = Math.floor(c / 3) * 3;
+    for (let rr = 0; rr < 3; rr++) {
+      for (let cc = 0; cc < 3; cc++) {
+        peerSet.add((br + rr) * 9 + bc + cc);
+      }
+    }
+  };
+
+  if (selection.length === 1) {
+    addUnitPeers(selection[0]);
+    return peerSet;
+  }
+
+  const filled = selection.filter((i) => cells[i]?.value > 0);
+  if (filled.length >= 2) {
+    const firstVal = cells[filled[0]].value;
+    const allSame = filled.every((i) => cells[i].value === firstVal);
+    if (allSame) {
+      for (const i of filled) {
+        addUnitPeers(i);
+      }
+    }
+  }
+
+  return peerSet;
+}
+
 export function Grid() {
   const cells = useGame((s) => s.cells);
   const selection = useGame((s) => s.selection);
@@ -434,6 +490,8 @@ export function Grid() {
   const won = useGame((s) => s.won);
   const togglePause = useGame((s) => s.togglePause);
   const armedDigit = useGame((s) => s.armedDigit);
+  const armedDigits = useGame((s) => s.armedDigits) ?? [];
+  const armedColor = useGame((s) => s.armedColor);
   const input = useGame((s) => s.input);
   const chainTap = useGame((s) => s.chainTap);
   const multiSelect = useGame((s) => s.multiSelect);
@@ -448,8 +506,10 @@ export function Grid() {
     digitTints,
     tintStrength,
     setTracker,
-    setColors
+    setColors,
+    customPalette
   } = useSettings();
+  const palette = customPalette && customPalette.length === 9 ? customPalette : DEFAULT_PALETTE;
   const t = useT();
   /**
    * The colours a cell shows. With the set tracker on, a cell painted in
@@ -509,28 +569,17 @@ export function Grid() {
   );
 
   const selSet = new Set(selection);
-  // an armed digit (number-first entry) is tracked like a selected one
-  const selectedValues = armedDigit
-    ? new Set([armedDigit])
+  // an armed digit (number-first entry) or armed digits from the color bar are tracked like selected ones
+  const armedSet = new Set(armedDigits.length > 0 ? armedDigits : (armedDigit ? [armedDigit] : []));
+  const selectedValues = armedSet.size > 0
+    ? new Set([...armedSet, ...selection.map((i) => cells[i].value).filter((v) => v > 0)])
     : new Set(selection.map((i) => cells[i].value).filter((v) => v > 0));
-  const trackDigits = highlightSameDigit || armedDigit !== null;
-  // the digit being tracked (one distinct value selected — a click on a
-  // placed digit, or the hold/double-click select-all gesture): its pencil
-  // occurrences light up too, wherever the player has actually marked them
-  const hlDigit = trackDigits && selectedValues.size === 1 ? [...selectedValues][0] : 0;
-  const peerSet = new Set<number>();
-  if (highlightPeers && selection.length === 1) {
-    const i = selection[0];
-    const r = Math.floor(i / 9);
-    const c = i % 9;
-    for (let k = 0; k < 9; k++) {
-      peerSet.add(r * 9 + k);
-      peerSet.add(k * 9 + c);
-    }
-    const br = Math.floor(r / 3) * 3;
-    const bc = Math.floor(c / 3) * 3;
-    for (let rr = 0; rr < 3; rr++) for (let cc = 0; cc < 3; cc++) peerSet.add((br + rr) * 9 + bc + cc);
-  }
+  const trackDigits = highlightSameDigit || armedSet.size > 0;
+  // the digits being tracked (all distinct placed values selected — a click on a
+  // placed digit, the hold/double-click select-all gesture, or selecting multiple
+  // numbers): their pencil occurrences light up too, wherever the player has actually marked them
+  const hlDigits = trackDigits ? selectedValues : new Set<number>();
+  const peerSet = computePeerHighlights(cells, selection, highlightPeers);
 
   // hint candidate markers: cell -> digit -> kind; a solved cell listed in
   // a colour shows it on its digit instead (valueMarks) and never gets a
@@ -910,7 +959,8 @@ export function Grid() {
       before.current = add ? was : [];
       // the tentative highlight, in the frame of the landing; with a digit
       // armed the cell lights up now and takes the digit on the lift
-      if (useGame.getState().armedDigit && !add) select([cell], false);
+      const curState = useGame.getState();
+      if ((curState.armedColor !== null || curState.armedDigit !== null) && !add) select([cell], false);
       else tapCell(cell, add);
       startLongPress(cell);
       clearIntentTimer();
@@ -922,8 +972,14 @@ export function Grid() {
       }, INTENT_MS);
       return;
     }
-    // number-first: with a digit armed, a plain tap enters it here
-    const armed = useGame.getState().armedDigit;
+    // armed color paints cell with color; armed digit enters digit value
+    const { armedColor, armedDigit: armed } = useGame.getState();
+    if (armedColor !== null && !add) {
+      select([cell], false);
+      input(armedColor + 1, 'color');
+      useGame.setState({ selection: [] });
+      return;
+    }
     if (armed && !add) {
       select([cell], false);
       input(armed);
@@ -1034,9 +1090,14 @@ export function Grid() {
       return;
     }
     // the landing selected the cell; a lift that never left it is the
-    // tap that enters an armed digit
-    const armed = useGame.getState().armedDigit;
-    if (armed && !t.additive && !t.left) input(armed);
+    // tap that enters an armed color or armed digit
+    const { armedColor, armedDigit: armed } = useGame.getState();
+    if (armedColor !== null && !t.additive && !t.left) {
+      input(armedColor + 1, 'color');
+      useGame.setState({ selection: [] });
+    } else if (armed && !t.additive && !t.left) {
+      input(armed);
+    }
   };
   // the browser took the touch for a scroll or a pinch: a tentative
   // highlight goes back; a committed drag keeps what it has selected
@@ -1103,6 +1164,14 @@ export function Grid() {
         aria-label={t('Sudoku board. Arrow keys move between cells, digits enter, Backspace erases.')}
         aria-describedby="board-status"
       >
+        <defs>
+          <radialGradient id="chess-check-glow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ef4444" stopOpacity="0.85" />
+            <stop offset="50%" stopColor="#dc2626" stopOpacity="0.65" />
+            <stop offset="85%" stopColor="#b91c1c" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="#7f1d1d" stopOpacity="0.25" />
+          </radialGradient>
+        </defs>
         {/* cell layers */}
         {cells.map((cell, i) => {
           const x = M + (i % 9) * SIZE;
@@ -1111,8 +1180,9 @@ export function Grid() {
           const isErr = errors.includes(i);
           const samePeer = peerSet.has(i) && !isSel;
           const sameDigit = trackDigits && !isSel && cell.value > 0 && selectedValues.has(cell.value);
+          const isAlt = (Math.floor(i / 9) + (i % 9)) % 2 === 1;
           return (
-            <g key={i}>
+            <g key={i} className={`cell-layer ${isAlt ? 'cell-alt' : 'cell-main'}`}>
               <rect x={x} y={y} width={SIZE} height={SIZE} fill="var(--cell-bg)" />
               {shownColors(cell.colors).map((col, k, shown) => (
                 <rect
@@ -1121,7 +1191,7 @@ export function Grid() {
                   y={y}
                   width={SIZE / shown.length}
                   height={SIZE}
-                  fill={PALETTE[col]}
+                  fill={palette[col]}
                   opacity={0.55}
                 />
               ))}
@@ -1129,7 +1199,7 @@ export function Grid() {
                 <rect x={x} y={y} width={SIZE} height={SIZE} fill="var(--peer-bg)" />
               )}
               {sameDigit && (
-                <rect x={x} y={y} width={SIZE} height={SIZE} fill="var(--same-bg)" />
+                <rect className="same-digit-rect" x={x} y={y} width={SIZE} height={SIZE} fill="var(--same-bg)" />
               )}
               {hintCells.has(i) && (
                 <rect
@@ -1143,6 +1213,7 @@ export function Grid() {
               )}
               {isSel && (
                 <rect
+                  className="board-sel-rect"
                   x={x + 3}
                   y={y + 3}
                   width={SIZE - 6}
@@ -1215,8 +1286,9 @@ export function Grid() {
             const y = M + Math.floor(i / 9) * SIZE;
             const marks = hintMarks.get(i);
             const candDisplay = autoCandidates && !cell.value ? canonical!.cands[i] : 0;
+            const isAlt = (Math.floor(i / 9) + (i % 9)) % 2 === 1;
             return (
-              <g key={i}>
+              <g key={i} className={`cell-content ${isAlt ? 'cell-alt' : 'cell-main'}`}>
                 {/* hint candidate circles */}
                 {marks &&
                   !cell.value &&
@@ -1269,8 +1341,9 @@ export function Grid() {
                 ) : candDisplay ? (
                   digitsOf(candDisplay).map((d) => (
                     <React.Fragment key={d}>
-                      {d === hlDigit && frameHighlights && !marks?.has(d) && (
+                      {hlDigits.has(d) && frameHighlights && !marks?.has(d) && (
                         <rect
+                          className="cand-frame cand-frame-hl"
                           x={x + candX(d) - 11}
                           y={y + candY(d) - 19}
                           width={22}
@@ -1282,15 +1355,16 @@ export function Grid() {
                         />
                       )}
                       <text
+                        className={hlDigits.has(d) ? 'cand-text-hl' : undefined}
                         x={x + candX(d)}
                         y={y + candY(d)}
                         textAnchor="middle"
                         fontSize={23}
-                        fontWeight={marks?.has(d) ? 700 : d === hlDigit ? 700 : pairs.has(i) ? 600 : 400}
+                        fontWeight={marks?.has(d) ? 700 : hlDigits.has(d) ? 700 : pairs.has(i) ? 600 : 400}
                         fill={
                           marks?.has(d)
                             ? hintTextFill(marks.get(d)!)
-                            : d === hlDigit
+                            : hlDigits.has(d)
                               ? 'var(--accent)'
                               : 'var(--cand)'
                         }
@@ -1300,7 +1374,7 @@ export function Grid() {
                     </React.Fragment>
                   ))
                 ) : (
-                  renderMarks(cell, x, y, marks, hlDigit, frameHighlights, pairs.has(i))
+                  renderMarks(cell, x, y, marks, hlDigits, frameHighlights, pairs.has(i))
                 )}
               </g>
             );
@@ -1349,7 +1423,7 @@ export function Grid() {
               y1={M}
               x2={M + k * SIZE}
               y2={M + 9 * SIZE}
-              stroke="var(--line)"
+              stroke={k % 3 === 0 ? 'var(--line-thick, var(--line))' : 'var(--line)'}
               strokeWidth={k % 3 === 0 ? 6 : 1.5}
               strokeLinecap="round"
             />
@@ -1358,7 +1432,7 @@ export function Grid() {
               y1={M + k * SIZE}
               x2={M + 9 * SIZE}
               y2={M + k * SIZE}
-              stroke="var(--line)"
+              stroke={k % 3 === 0 ? 'var(--line-thick, var(--line))' : 'var(--line)'}
               strokeWidth={k % 3 === 0 ? 6 : 1.5}
               strokeLinecap="round"
             />

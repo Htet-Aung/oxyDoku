@@ -24,6 +24,7 @@ import { LearnText, langPrefix, exampleStep } from '../content/learnLocale';
 import type { LearnString } from '../content/learnStrings';
 import { useT, msg } from '../content/i18n';
 import { HubTabs } from './HubTabs';
+import { GearIcon, CloseIcon } from './Icons';
 import { useLearnText } from './useLearnText';
 import { getTechniqueGuide } from '../content/techniqueGuides';
 import { useSettings } from '../state/settings';
@@ -438,7 +439,7 @@ function TechniqueList({
               >
                 <summary>
                   <span className="learn-name">
-                    {status && <span className="learn-mark">{status.mark} </span>}
+                    {status && <span className="learn-mark">{status.mark === '⚙' ? <GearIcon size={12} /> : status.mark === '✗' ? <CloseIcon size={12} /> : status.mark} </span>}
                     {lt.techName(tech)}
                   </span>
                   <span className={`level-badge level-${info.level.toLowerCase()}`}>{lt.level(info.level)}</span>

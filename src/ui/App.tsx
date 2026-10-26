@@ -3,14 +3,15 @@
 // toast display and the first-visit bootstrap game.
 import React, { Suspense, useEffect, useState, useRef } from 'react';
 import { SLOP_PX } from './touchIntent';
-import { useGame, rateImport, validatePuzzle, Proof, playedOn } from '../state/gameStore';
+import { useGame, rateImport, validatePuzzle, Proof, playedOn, type EntryMode } from '../state/gameStore';
 import { cellName, PEERS } from '../engine/board';
 import { dailyPuzzle } from '../engine/daily';
-import { useSettings } from '../state/settings';
+import { useSettings, THEMES, type Theme } from '../state/settings';
 import { useAppStatus } from '../state/appStatus';
 import { useT, translator, rich, langRoot } from '../content/i18n';
 import type { Translator } from '../content/i18n';
 import { Grid } from './Grid';
+import { ColorPaletteBar } from './ColorPaletteBar';
 import { SetTracker } from './SetTracker';
 import { Poodle } from './Poodle';
 import { Controls } from './Controls';
@@ -26,7 +27,6 @@ import {
   GeneratingDialog,
   VictoryDialog,
   SolutionPathDialog,
-  ScanDialog,
   ContractDialog,
   PositionImportConfirmDialog
 } from './Dialogs';
@@ -38,19 +38,37 @@ import type { Step } from '../engine/steps';
 import { ProgressDialog } from './Progress';
 import { usePatternScanner } from '../state/scannerStore';
 import { PatternScannerPanel } from './PatternScannerPanel';
+import {
+  GraduationCapIcon,
+  SunIcon,
+  FlowerIcon,
+  TreeIcon,
+  MoonIcon,
+  GearIcon,
+  LinkIcon,
+  TargetIcon,
+  CheckIcon,
+  ZapIcon,
+  ChessKnightIcon,
+  FishIcon,
+  SparklesIcon,
+  TerminalIcon,
+  InfoIcon
+} from './Icons';
 import { PracticePanel } from './PracticePanel';
 import { usePractice } from '../state/practiceStore';
 import { isTechniqueVisibleInScan, INTERMEDIATE_TECHS } from '../content/mastery';
 import { findAllPatternInstances } from '../engine/scanner';
 import { engineGrid } from '../state/gameStore';
 import { MyTechniquesDialog } from './MyTechniquesDialog';
+import { LiveSyncIndicator } from './LiveSyncIndicator';
 import { Modal } from './Dialogs';
 import type { LearnTarget } from './Learn';
 
 // the guide is a third of the app's code and prose: fetched the first time
 // it opens (and precached for offline), never as part of loading the game
 const LearnDialog = React.lazy(() => import('./Learn').then((m) => ({ default: m.LearnDialog })));
-import { PRACTICE_TECHS, Tech, Level, LEVELS } from '../engine/ratings';
+import { PRACTICE_TECHS, Tech, Level, LEVELS, pickOf } from '../engine/ratings';
 import { techFromParam } from '../content/slugs';
 import { parseShareUrl, sharePath, clockOf } from '../content/share';
 import { localDateKey, dateOfKey, loadDailies, findDaily, dailyNumber, parseDailyUrl, dailyPath } from '../content/dailies';
@@ -58,8 +76,9 @@ import { useDailyStats } from '../state/dailyStats';
 import { useTelemetry } from '../state/telemetry';
 import { RATING_URL, PRIVACY_URL } from '../content/staticRoutes';
 
-/** the name, the same in every language: "sudok" and a coloured "UI" */
-const BRAND = ['sudok', 'UI'] as const;
+/** the name: "oxy" and a coloured "Doku", with "OD" mark */
+const BRAND = ['oxy', 'Doku'] as const;
+const BRAND_MARK = 'OD';
 /** a no-break space: the &nbsp; after the rating's word in the top bar */
 const NBSP = String.fromCharCode(160);
 
@@ -178,6 +197,31 @@ function Timer() {
   );
 }
 
+function renderThemeIcon(t: Theme, size = 16) {
+  switch (t) {
+    case 'dark':
+      return <MoonIcon size={size} />;
+    case 'light':
+      return <SunIcon size={size} />;
+    case 'rose':
+      return <FlowerIcon size={size} />;
+    case 'forest':
+      return <TreeIcon size={size} />;
+    case 'cyberpunk':
+      return <ZapIcon size={size} />;
+    case 'chess':
+      return <ChessKnightIcon size={size} />;
+    case 'aquarium':
+      return <FishIcon size={size} />;
+    case 'midnight':
+      return <SparklesIcon size={size} />;
+    case 'retro':
+      return <TerminalIcon size={size} />;
+    default:
+      return <MoonIcon size={size} />;
+  }
+}
+
 export default function App() {
   const info = useGame((s) => s.info);
   const won = useGame((s) => s.won);
@@ -192,6 +236,8 @@ export default function App() {
   const redo = useGame((s) => s.redo);
   const setMode = useGame((s) => s.setMode);
   const setTempMode = useGame((s) => s.setTempMode);
+  const zDownRef = useRef(false);
+  const [zHeld, setZHeld] = useState(false);
   const mode = useGame((s) => s.mode);
   const errors = useGame((s) => s.errors);
   const revertIndex = useGame((s) => s.revertIndex);
@@ -206,6 +252,8 @@ export default function App() {
   const practiceTarget = useGame((s) => s.practiceTarget);
   const startChain = useGame((s) => s.startChain);
   const requestHint = useGame((s) => s.requestHint);
+  const hint = useGame((s) => s.hint);
+  const hintStage = useGame((s) => s.hintStage);
   const selection = useGame((s) => s.selection);
   const select = useGame((s) => s.select);
   const custom = useGame((s) => s.custom);
@@ -220,7 +268,7 @@ export default function App() {
   const givenCount = useGame((s) =>
     s.custom ? s.cells.filter((c) => c.value > 0).length : 0
   );
-  const { theme, font, toggleTheme, showTimer, hideRating, showPoodle, lang } = useSettings();
+  const { theme, font, toggleTheme, setTheme, showTimer, hideRating, showPoodle, lang } = useSettings();
   const t = useT();
   const { start, genState, cancel } = useNewGame();
   // the hardest bands start from seeds: stock their pools while idle, so
@@ -253,6 +301,28 @@ export default function App() {
   const openScanner = usePatternScanner((s) => s.openScanner);
   const closeScanner = usePatternScanner((s) => s.closeScanner);
   const [victoryDismissed, setVictoryDismissed] = useState(false);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const [showThemePicker, setShowThemePicker] = useState(false);
+
+  useEffect(() => {
+    if (!showThemePicker) return;
+    const onClick = (e: MouseEvent) => {
+      if ((e.target as HTMLElement).closest('.header-theme-picker-container')) return;
+      setShowThemePicker(false);
+    };
+    window.addEventListener('click', onClick);
+    return () => window.removeEventListener('click', onClick);
+  }, [showThemePicker]);
+
+  useEffect(() => {
+    if (!showHeaderMenu) return;
+    const onClick = (e: MouseEvent) => {
+      if ((e.target as HTMLElement).closest('.header-menu-container')) return;
+      setShowHeaderMenu(false);
+    };
+    window.addEventListener('click', onClick);
+    return () => window.removeEventListener('click', onClick);
+  }, [showHeaderMenu]);
   const [customError, setCustomError] = useState<string | null>(null);
   // the report dialog, with the hint it is about when it came from "Looks wrong?"
   const [report, setReport] = useState<{ kind: ReportKind; hint?: Step } | null>(null);
@@ -406,6 +476,14 @@ export default function App() {
     }
     const importPos = params.get(POSITION_IMPORT_HASH_PARAM);
     if (importPos !== null) {
+      try {
+        const cleanParams = new URLSearchParams(window.location.hash.slice(1));
+        cleanParams.delete(POSITION_IMPORT_HASH_PARAM);
+        const rem = cleanParams.toString();
+        const newUrl = window.location.pathname + window.location.search + (rem ? `#${rem}` : '');
+        window.history.replaceState(null, '', newUrl);
+      } catch (_) {}
+
       const res = useGame.getState().importPositionPayload(importPos);
       if (!res.ok) {
         useGame.setState({ notice: res.reason });
@@ -414,7 +492,17 @@ export default function App() {
       }
     }
     const sharedPosition = params.get('s');
-    if (sharedPosition && useGame.getState().loadPosition(sharedPosition)) return;
+    if (sharedPosition) {
+      try {
+        const cleanParams = new URLSearchParams(window.location.hash.slice(1));
+        cleanParams.delete('s');
+        const rem = cleanParams.toString();
+        const newUrl = window.location.pathname + window.location.search + (rem ? `#${rem}` : '');
+        window.history.replaceState(null, '', newUrl);
+      } catch (_) {}
+
+      if (useGame.getState().loadPosition(sharedPosition)) return;
+    }
     const share = parseShareUrl(window.location);
     // a puzzle string may write its empty cells as zeros; the app writes dots
     const shared = (share?.puzzle ?? params.get('p') ?? '').replace(/[^0-9.]/g, '').replace(/0/g, '.');
@@ -483,6 +571,14 @@ export default function App() {
       const params = new URLSearchParams(window.location.hash.slice(1));
       const importPos = params.get(POSITION_IMPORT_HASH_PARAM);
       if (importPos !== null) {
+        try {
+          const cleanParams = new URLSearchParams(window.location.hash.slice(1));
+          cleanParams.delete(POSITION_IMPORT_HASH_PARAM);
+          const rem = cleanParams.toString();
+          const newUrl = window.location.pathname + window.location.search + (rem ? `#${rem}` : '');
+          window.history.replaceState(null, '', newUrl);
+        } catch (_) {}
+
         const res = useGame.getState().importPositionPayload(importPos);
         if (!res.ok) useGame.setState({ notice: res.reason });
         return;
@@ -585,17 +681,35 @@ export default function App() {
   }, [notice, clearNotice]);
 
   // hold-modifier temporary modes: Shift = corner, Ctrl/Alt = centre,
-  // Shift together with Ctrl/Alt = colour; release returns to the base mode
+  // Z = colour; Shift together with Ctrl/Alt = colour; release returns to the base mode
   useEffect(() => {
     const applyModifiers = (e: KeyboardEvent) => {
-      if (e.metaKey) return void setTempMode(null); // leave Cmd shortcuts alone
+      if (e.metaKey) {
+        zDownRef.current = false;
+        setZHeld(false);
+        return void setTempMode(null); // leave Cmd shortcuts alone
+      }
+      if (zDownRef.current) {
+        setTempMode('color');
+        return;
+      }
       const other = e.ctrlKey || e.altKey;
       setTempMode(
         e.shiftKey && other ? 'color' : e.shiftKey ? 'corner' : other ? 'center' : null
       );
     };
-    const onUp = (e: KeyboardEvent) => applyModifiers(e);
-    const onBlur = () => setTempMode(null);
+    const onUp = (e: KeyboardEvent) => {
+      if (e.code === 'KeyZ') {
+        zDownRef.current = false;
+        setZHeld(false);
+      }
+      applyModifiers(e);
+    };
+    const onBlur = () => {
+      zDownRef.current = false;
+      setZHeld(false);
+      setTempMode(null);
+    };
     window.addEventListener('keyup', onUp);
     window.addEventListener('blur', onBlur);
     return () => {
@@ -617,15 +731,44 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       // a dialog is open: its keys must not act on the board behind it
       // (N stays live, for "next puzzle" from the victory dialog)
-      if (document.querySelector('.modal-backdrop') && e.code !== 'KeyN') return;
-      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
-      if (!e.metaKey) {
-        const other = e.ctrlKey || e.altKey;
-        setTempMode(
-          e.shiftKey && other ? 'color' : e.shiftKey ? 'corner' : other ? 'center' : null
-        );
+      if (document.querySelector('.modal-backdrop') && e.code !== 'KeyN') {
+        if (zDownRef.current) {
+          zDownRef.current = false;
+          setZHeld(false);
+          setTempMode(null);
+        }
+        return;
+      }
+      const targetEl = e.target instanceof HTMLElement ? e.target : null;
+      if (
+        targetEl &&
+        (targetEl.tagName === 'INPUT' ||
+          targetEl.tagName === 'TEXTAREA' ||
+          targetEl.tagName === 'SELECT' ||
+          targetEl.isContentEditable ||
+          targetEl.getAttribute('role') === 'textbox' ||
+          targetEl.getAttribute('role') === 'searchbox')
+      ) {
+        return;
       }
       const mod = e.metaKey || e.ctrlKey;
+      if (!mod && e.code === 'KeyZ') {
+        e.preventDefault();
+        zDownRef.current = true;
+        setZHeld(true);
+        setTempMode('color');
+        return;
+      }
+      if (!e.metaKey) {
+        if (zDownRef.current) {
+          setTempMode('color');
+        } else {
+          const other = e.ctrlKey || e.altKey;
+          setTempMode(
+            e.shiftKey && other ? 'color' : e.shiftKey ? 'corner' : other ? 'center' : null
+          );
+        }
+      }
       // walking a hint: the arrow keys step through its frames, Escape
       // returns to the whole drawing
       const walking = useGame.getState().hintStage === 'walk';
@@ -638,8 +781,12 @@ export default function App() {
         useGame.getState().revealHint();
         return;
       }
-      if (mod && e.code === 'KeyZ' && !e.shiftKey) return void (e.preventDefault(), undo());
-      if (mod && (e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey)))
+      if ((mod && e.code === 'KeyZ' && !e.shiftKey) || (!mod && e.code === 'BracketLeft'))
+        return void (e.preventDefault(), undo());
+      if (
+        (mod && (e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey))) ||
+        (!mod && e.code === 'BracketRight')
+      )
         return void (e.preventDefault(), redo());
       if (mod && e.code === 'KeyA')
         return void (e.preventDefault(), select(Array.from({ length: 81 }, (_, i) => i), false));
@@ -647,7 +794,17 @@ export default function App() {
         const d = Number(e.code.replace('Digit', '').replace('Numpad', ''));
         if (d >= 1 && d <= 9) {
           e.preventDefault();
-          input(d); // held modifiers already routed via the temporary mode
+          const ctrlOrMeta = e.ctrlKey || e.metaKey;
+          const shift = e.shiftKey;
+          let entryAs: EntryMode | undefined;
+          if (zDownRef.current || (shift && ctrlOrMeta)) {
+            entryAs = 'color';
+          } else if (ctrlOrMeta) {
+            entryAs = 'center';
+          } else if (shift) {
+            entryAs = 'corner';
+          }
+          input(d, entryAs);
           return;
         }
       }
@@ -672,6 +829,7 @@ export default function App() {
           // deselect — the Escape alternative for fullscreen browsers,
           // where Escape exits fullscreen instead
           select([], false);
+          useGame.getState().clearArmedDigits();
           break;
         case 'KeyN': {
           const tech = useGame.getState().info?.practiceTech;
@@ -687,17 +845,12 @@ export default function App() {
           setMode(order[(order.indexOf(useGame.getState().mode) + 1) % order.length]);
           break;
         }
-        case 'KeyZ':
-          setMode('digit');
-          break;
-        case 'KeyX':
-          setMode('corner');
-          break;
-        case 'KeyC':
-          setMode('center');
-          break;
-        case 'KeyV':
-          setMode('color');
+        case 'Period':
+        case 'NumpadDecimal':
+          if (!mod) {
+            e.preventDefault();
+            useGame.getState().convertCornerToCenter();
+          }
           break;
         case 'KeyH': {
           // H walks the hint: ask, then reveal, then apply; the first
@@ -724,13 +877,6 @@ export default function App() {
           useGame.getState().setBivalueHighlight(!useSettings.getState().highlightBivalue);
           break;
         }
-        case 'KeyM': {
-          // Cmd+M minimises the window, Ctrl+M is the browser's: not ours
-          if (mod || e.altKey) break;
-          const g = useGame.getState();
-          g.setMultiSelect(!g.multiSelect);
-          break;
-        }
         case 'Escape': {
           const g = useGame.getState();
           if (g.chain) g.endChain();
@@ -738,6 +884,7 @@ export default function App() {
             // the way out of multi-select, as of a selection
             if (g.multiSelect) g.setMultiSelect(false);
             select([], false);
+            g.clearArmedDigits();
           }
           break;
         }
@@ -764,87 +911,184 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark">{BRAND[1]}</span>
-          <h1>
-            {BRAND[0]}<span className="brand-ui">{BRAND[1]}</span>
-          </h1>
+      <header className="topbar analysis-topbar">
+        <div className="brand-group">
+          <div className="brand">
+            <span className="brand-mark">{BRAND_MARK}</span>
+            <h1>
+              {BRAND[0]}<span className="brand-ui">{BRAND[1]}</span>
+            </h1>
+          </div>
         </div>
-        {info && (
-          <div className="game-meta" ref={metaRef}>
-            {hideRating && !won ? (
-              <button
-                className="score-btn hidden-rating"
-                onClick={() => setDialog('settings')}
-                title={t('Difficulty is hidden until you solve the puzzle. Change this in Settings')}
-              >
-                <span className="level-badge level-hidden">🎲 {t('hidden||the difficulty, until the puzzle is solved')}</span>
-              </button>
-            ) : (
-              <>
-                <RatingGauge level={info.level} score={info.score} puzzle={info.puzzle} />
-                {/* the title names the level where a narrow phone shortens it */}
-                <span className={`level-badge level-${info.level.toLowerCase()}`} title={t.level(info.level)}>
-                  {t.level(info.level)}
-                </span>
-                <button
-                  className="score-btn"
-                  onClick={() => openLearn({ tab: 'rating' })}
-                  title={t('How this rating is calculated')}
-                  aria-label={t('HoDoKu rating {score}. How the rating is calculated', { score: info.score })}
-                >
-                  <span className="rating-word">{t("HoDoKu rating||the puzzle's score, before the number")}{NBSP}</span><strong>{info.score}</strong> <span className="mini-i">ⓘ</span>
-                </button>
-              </>
+
+        <div className="header-center">
+          <button
+            type="button"
+            className="board-status-badge"
+            onClick={() => openLearn({ tab: 'rating' })}
+            title={t('How the HoDoKu rating works, in full')}
+          >
+            <span className="status-dot" aria-hidden="true">●</span>
+            <span className="status-text">
+              {custom
+                ? t('Custom')
+                : info
+                  ? `${t.level(pickOf(info.level, info.score))} · ${info.score}`
+                  : ''}
+            </span>
+            {info?.practiceTech && (
+              <span className="practice-badge"> · {t('Practice: {tech}', { tech: t.tech(info.practiceTech) })}</span>
             )}
-            {info.practiceTech && (
-              <span className="practice-badge">{t('Practice: {tech}', { tech: t.tech(info.practiceTech) })}</span>
+          </button>
+          <LiveSyncIndicator />
+          <button
+            className="header-import-btn"
+            onClick={() => setDialog('io')}
+            title={t('Import a puzzle')}
+          >
+            <span className="btn-icon">⇅</span>
+            <span>{t('Import')}</span>
+          </button>
+        </div>
+
+        <div className="topbar-right">
+          <button
+            className="header-nav-btn"
+            onClick={() => openLearn({ tab: 'techniques' })}
+            title={t('Your path, practice and the theory of every technique')}
+          >
+            <span className="btn-icon"><GraduationCapIcon size={16} /></span>
+            <span>{t('Learn')}</span>
+          </button>
+
+          <div className="header-theme-picker-container">
+            <button
+              className="icon-btn theme-btn"
+              onClick={() => setShowThemePicker(!showThemePicker)}
+              title={t('Theme')}
+              aria-label={t('Theme')}
+              aria-expanded={showThemePicker}
+            >
+              {renderThemeIcon(theme, 16)}
+            </button>
+            {showThemePicker && (
+              <div className="theme-picker-popover" role="dialog" aria-label={t('Theme')}>
+                <div className="theme-picker-header">
+                  <h4>{t('Theme')}</h4>
+                  <span className="theme-current-pill">
+                    {THEMES.find((item) => item.id === theme)?.name ?? theme}
+                  </span>
+                </div>
+                <div className="theme-grid-list" role="menu">
+                  {THEMES.map((item) => {
+                    const isSelected = item.id === theme;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        role="menuitem"
+                        className={`theme-card-option${isSelected ? ' active' : ''}`}
+                        onClick={() => {
+                          setTheme(item.id);
+                          setShowThemePicker(false);
+                        }}
+                      >
+                        <div className="theme-card-swatches">
+                          <span
+                            className="theme-swatch-circle"
+                            style={{
+                              backgroundColor: item.surfaceColor,
+                              borderColor: item.primaryColor
+                            }}
+                          >
+                            <span
+                              className="theme-swatch-dot"
+                              style={{ backgroundColor: item.primaryColor }}
+                            />
+                          </span>
+                        </div>
+                        <div className="theme-card-info">
+                          <span className="theme-card-name">{t(item.name)}</span>
+                          <span className="theme-card-desc">{t(item.description)}</span>
+                        </div>
+                        {isSelected && (
+                          <span className="theme-card-check">
+                            <CheckIcon size={14} />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
-        )}
-        <div className="topbar-right">
-          {showTimer && <Timer />}
-          <button
-            className="icon-btn"
-            onClick={togglePause}
-            title={t('Pause (P)')}
-            aria-label={t(paused ? 'Resume game' : 'Pause game')}
-          >
-            {paused ? '⏵' : '⏸'}
-          </button>
-          <button
-            className="icon-btn theme-btn"
-            onClick={toggleTheme}
-            title={t('Cycle theme: dark → daylight → rosé → forest')}
-            aria-label={t(
-              theme === 'dark'
-                ? 'Switch to daylight theme'
-                : theme === 'light'
-                  ? 'Switch to rosé theme'
-                  : theme === 'rose'
-                    ? 'Switch to forest theme'
-                    : 'Switch to dark theme'
-            )}
-          >
-            {theme === 'dark' ? '☀️' : theme === 'light' ? '🌸' : theme === 'rose' ? '🌲' : '🌙'}
-          </button>
+
           <button
             className="icon-btn"
             onClick={() => setDialog('info')}
             title={t('How to play, modes & shortcuts')}
             aria-label={t('How to play, modes and shortcuts')}
           >
-            ⓘ
+            <InfoIcon size={16} />
           </button>
-          <button
-            className="icon-btn gear"
-            onClick={() => setDialog('settings')}
-            title={t('Settings')}
-            aria-label={t('Settings')}
-          >
-            ⚙
-          </button>
+
+          <div className="header-menu-container">
+            <button
+              className="icon-btn gear"
+              onClick={() => setShowHeaderMenu(!showHeaderMenu)}
+              title={t('Options')}
+              aria-label={t('Options')}
+              aria-expanded={showHeaderMenu}
+            >
+              <GearIcon size={16} />
+            </button>
+            {showHeaderMenu && (
+              <div className="header-dropdown-menu" role="menu">
+                <button
+                  onClick={() => {
+                    setShowHeaderMenu(false);
+                    setDialog('settings');
+                  }}
+                >
+                  <span className="menu-icon"><GearIcon size={16} /></span> {t('Settings')}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowHeaderMenu(false);
+                    setDialog('my-techniques');
+                  }}
+                >
+                  <span className="menu-icon"><GraduationCapIcon size={16} /></span> {t('My Techniques')}
+                </button>
+                <hr className="dropdown-divider" />
+                <button
+                  onClick={() => {
+                    setShowHeaderMenu(false);
+                    setDialog('new');
+                  }}
+                >
+                  <span className="menu-icon">▦</span> {t('New')}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowHeaderMenu(false);
+                    setDialog('restart');
+                  }}
+                >
+                  <span className="menu-icon">↺</span> {t('Restart')}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowHeaderMenu(false);
+                    setDialog('share');
+                  }}
+                >
+                  <span className="menu-icon"><LinkIcon size={16} /></span> {t('Share')}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -861,11 +1105,15 @@ export default function App() {
         onPointerUp={(e) => {
           const down = layoutTap.current;
           layoutTap.current = null;
-          if (down && emptySpace(e.target) && Math.hypot(e.clientX - down.x, e.clientY - down.y) <= SLOP_PX) select([], false);
+          if (down && emptySpace(e.target) && Math.hypot(e.clientX - down.x, e.clientY - down.y) <= SLOP_PX) {
+            select([], false);
+            useGame.getState().clearArmedDigits();
+          }
         }}
       >
         <div className="board-col">
           <Grid />
+          <ColorPaletteBar zHeld={zHeld} />
           <SetTracker />
           {/* while paused, Nutella moves onto the pause card instead */}
           {showPoodle && (!paused || won) && <Poodle />}
@@ -873,40 +1121,32 @@ export default function App() {
         <aside
           className={`side${paused && !won ? ' paused' : ''}${scannerOpen ? ' scanner-open' : ''}${info?.practiceTech && practiceMode !== 'inactive' ? ' practice-open' : ''}`}
         >
-          <div className="menu-row">
-            <button onClick={() => setDialog('new')}>
-              <span className="menu-icon">▦</span>{t('New')}
-            </button>
-            <button
-              className={info?.practiceTech ? 'active' : ''}
-              onClick={() => setDialog('progress')}
-              title={t('Your path, practice and the theory of every technique')}
-            >
-              <span className="menu-icon">🎓</span>{t('Learn')}
-            </button>
-            <button
-              className={scannerOpen ? 'active' : ''}
-              onClick={() => {
-                if (scannerOpen) closeScanner();
-                else openScanner();
-              }}
-              title={t('Pattern Scanner: scan the current position for all available patterns')}
-            >
-              <span className="menu-icon">🔬</span>{t('Patterns')}
-            </button>
-            <button onClick={() => setDialog('io')}>
-              <span className="menu-icon">⇅</span>{t('Import')}
-            </button>
-            <button onClick={() => setDialog('share')}>
-              <span className="menu-icon">🔗</span>{t('Share')}
-            </button>
-            <button onClick={() => setDialog('restart')} title={t('Reset this puzzle and the timer')}>
-              <span className="menu-icon">↺</span>{t('Restart')}
-            </button>
-          </div>
           <Controls
             onShowSteps={info && !custom ? () => setDialog('steps') : undefined}
-            onScan={info && !custom ? () => setDialog('scan') : undefined}
+            onScan={
+              info && !custom
+                ? () => {
+                    if (scannerOpen) {
+                      usePatternScanner.getState().runScan();
+                    } else {
+                      openScanner({ autoScan: true });
+                    }
+                  }
+                : undefined
+            }
+            onHint={
+              info && !custom
+                ? () => {
+                    if (scannerOpen) closeScanner();
+                    const g = useGame.getState();
+                    if (g.hintStage === 'tech') g.revealHint();
+                    else if (g.hintStage === 'full' || g.hintStage === 'walk') g.applyHint();
+                    else requestHint();
+                  }
+                : undefined
+            }
+            scannerOpen={scannerOpen}
+            hintActive={!!(hint && hintStage !== 'hidden')}
           />
           {info?.practiceTech && !custom && practiceMode !== 'inactive' ? (
             <PracticePanel
@@ -924,7 +1164,7 @@ export default function App() {
             <div className="practice-bar">
               <span className="practice-label">
                 {rich(t('Practicing {tech}'), { tech: <strong>{t.tech(info.practiceTech)}</strong> })}
-                {practiceFound && <span className="practice-found"> · {t('found||the technique being practised')} 🎯</span>}
+                {practiceFound && <span className="practice-found"> · {t('found||the technique being practised')} <TargetIcon size={14} /></span>}
               </span>
               <div className="practice-actions">
                 {!practiceFound &&
@@ -945,7 +1185,7 @@ export default function App() {
               </div>
             </div>
           ) : null}
-{scannerOpen ? (
+          {scannerOpen ? (
             <PatternScannerPanel
               onClose={closeScanner}
               onLearn={(tech) => openLearn({ tab: 'techniques', tech })}
@@ -985,7 +1225,7 @@ export default function App() {
                   <button
                     onClick={() => setCustomError(finishCustomEntry())}
                   >
-                    ✓ {t('Check & play')}
+                    <CheckIcon size={14} /> {t('Check & play')}
                   </button>
                   <button
                     className="ghost"
@@ -1070,7 +1310,6 @@ export default function App() {
             <span aria-hidden="true"> · </span>
             {/* what the app sends, exactly: a static page in the app's language */}
             <a href={`${langRoot(t.lang)}${PRIVACY_URL.slice(1)}`}>{t('Privacy')}</a>
-            <span className="dedication">{t('for thth ♥')}</span>
           </footer>
         </aside>
       </main>
@@ -1118,8 +1357,8 @@ export default function App() {
             onScan={
               info && !custom
                 ? (tech) => {
-                    setScanFor(tech);
-                    setDialog('scan');
+                    setDialog('none');
+                    openScanner({ lookForTech: tech, autoScan: true });
                   }
                 : undefined
             }
@@ -1139,15 +1378,6 @@ export default function App() {
       {dialog === 'io' && <ImportDialog onClose={() => setDialog('none')} />}
       {dialog === 'share' && <ShareDialog onClose={() => setDialog('none')} />}
       {dialog === 'steps' && <SolutionPathDialog onClose={() => setDialog('none')} />}
-      {dialog === 'scan' && (
-        <ScanDialog
-          lookFor={scanFor ?? undefined}
-          onClose={() => {
-            setScanFor(null);
-            setDialog('none');
-          }}
-        />
-      )}
       {welcome && (
         <Modal title={t('Welcome to sudokUI')} onClose={dismissWelcome}>
           <p className="dialog-note">

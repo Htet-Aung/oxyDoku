@@ -35,9 +35,168 @@ const safeLocalStorage: StateStorage = {
   }
 };
 
+export const DEFAULT_PALETTE: readonly string[] = [
+  '#e05563', // 1: coral / red
+  '#e8934a', // 2: orange
+  '#e6c74c', // 3: yellow
+  '#67b96a', // 4: green
+  '#4fc1b0', // 5: teal
+  '#5b8fe0', // 6: blue
+  '#9b74d8', // 7: purple
+  '#d873b8', // 8: pink
+  '#9aa3b5'  // 9: slate
+];
+
+const msg = (s: string) => s;
+
+export interface PalettePreset {
+  id: string;
+  name: string;
+  colors: readonly string[];
+}
+
+export const PALETTE_PRESETS: readonly PalettePreset[] = [
+  {
+    id: 'default',
+    name: msg('Classic'),
+    colors: DEFAULT_PALETTE
+  },
+  {
+    id: 'vivid',
+    name: msg('Vivid'),
+    colors: [
+      '#ef4444',
+      '#f97316',
+      '#eab308',
+      '#22c55e',
+      '#06b6d4',
+      '#3b82f6',
+      '#a855f7',
+      '#ec4899',
+      '#64748b'
+    ]
+  },
+  {
+    id: 'pastel',
+    name: msg('Pastel'),
+    colors: [
+      '#f87171',
+      '#fb923c',
+      '#facc15',
+      '#4ade80',
+      '#2dd4bf',
+      '#60a5fa',
+      '#c084fc',
+      '#f472b6',
+      '#94a3b8'
+    ]
+  },
+  {
+    id: 'colorblind',
+    name: msg('Colorblind Friendly'),
+    colors: [
+      '#d55e00',
+      '#e69f00',
+      '#f0e442',
+      '#009e73',
+      '#56b4e9',
+      '#0072b2',
+      '#cc79a7',
+      '#882255',
+      '#7f7f7f'
+    ]
+  }
+];
+
 export type MarkLayer = 'center' | 'corner';
 
-export type Theme = 'dark' | 'light' | 'rose' | 'forest';
+export type Theme = 'dark' | 'light' | 'rose' | 'forest' | 'cyberpunk' | 'chess' | 'aquarium' | 'midnight' | 'retro';
+
+export interface ThemeMeta {
+  id: Theme;
+  name: string;
+  description: string;
+  primaryColor: string;
+  surfaceColor: string;
+  textColor: string;
+}
+
+export const THEMES: readonly ThemeMeta[] = [
+  {
+    id: 'dark',
+    name: msg('Dark'),
+    description: msg('Clean dark slate with balanced high-contrast accents'),
+    primaryColor: '#6366f1',
+    surfaceColor: '#1e2230',
+    textColor: '#e6edf3'
+  },
+  {
+    id: 'light',
+    name: msg('Daylight'),
+    description: msg('Bright paper aesthetic with crisp readable typography'),
+    primaryColor: '#4f46e5',
+    surfaceColor: '#f1f5f9',
+    textColor: '#0f172a'
+  },
+  {
+    id: 'rose',
+    name: msg('Rosé'),
+    description: msg('Warm dusty rose tones with soft ambient contrast'),
+    primaryColor: '#e11d48',
+    surfaceColor: '#2b1d24',
+    textColor: '#fdf2f8'
+  },
+  {
+    id: 'forest',
+    name: msg('Forest'),
+    description: msg('Deep woodland pine and moss greens for focused solving'),
+    primaryColor: '#10b981',
+    surfaceColor: '#14231c',
+    textColor: '#ecfdf5'
+  },
+  {
+    id: 'cyberpunk',
+    name: msg('Cyberpunk'),
+    description: msg('High-tech neon cyan and vivid electric magenta on obsidian'),
+    primaryColor: '#00f0ff',
+    surfaceColor: '#120f24',
+    textColor: '#fcee0a'
+  },
+  {
+    id: 'chess',
+    name: msg('Chess'),
+    description: msg('Classic wooden tournament board with warm ivory and espresso'),
+    primaryColor: '#ffffff',
+    surfaceColor: '#121316',
+    textColor: '#f4f5f7'
+  },
+  {
+    id: 'aquarium',
+    name: msg('Aquarium'),
+    description: msg('Deep oceanic abyss with luminous seafoam and vibrant coral'),
+    primaryColor: '#2dd4bf',
+    surfaceColor: '#0b1928',
+    textColor: '#e0f2fe'
+  },
+  {
+    id: 'midnight',
+    name: msg('Midnight'),
+    description: msg('True pure-black AMOLED with sapphire highlights'),
+    primaryColor: '#38bdf8',
+    surfaceColor: '#000000',
+    textColor: '#f8fafc'
+  },
+  {
+    id: 'retro',
+    name: msg('Terminal'),
+    description: msg('Phosphor green CRT monochrome with vintage retro glow'),
+    primaryColor: '#22c55e',
+    surfaceColor: '#0c160c',
+    textColor: '#4ade80'
+  }
+];
+
+export const THEME_IDS: readonly Theme[] = THEMES.map((t) => t.id);
 
 /** typefaces already on the device: nothing to download, works offline */
 export type Font = 'classic' | 'rounded' | 'serif' | 'mono' | 'hand';
@@ -126,6 +285,12 @@ interface Settings {
    *  be counted. Kept at the player's request, like every setting */
   dontCount: boolean;
 
+  /** 9 custom palette colours for cell colouring (palette indices 0..8 corresponding to digits 1..9) */
+  customPalette: string[];
+  setPaletteColor: (index: number, color: string) => void;
+  setCustomPalette: (palette: string[]) => void;
+  resetPalette: () => void;
+
   mastery: MasterySettings;
   setTechniqueFamiliarity: (tech: Tech, familiarity: Familiarity) => void;
   setTechniqueFamiliarityBatch: (techs: Tech[], familiarity: Familiarity) => void;
@@ -133,6 +298,7 @@ interface Settings {
   setIncludeLearning: (include: boolean) => void;
 
   toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
   set: (p: Partial<Omit<Settings, 'toggleTheme' | 'set'>>) => void;
 }
 
@@ -164,6 +330,16 @@ export const useSettings = create<Settings>()(
       countPlays: false,
       countPlaysAsked: false,
       dontCount: false,
+      customPalette: [...DEFAULT_PALETTE],
+      setPaletteColor: (index, color) =>
+        set((s) => {
+          const current = s.customPalette && s.customPalette.length === 9 ? s.customPalette : [...DEFAULT_PALETTE];
+          const next = [...current];
+          next[index] = color;
+          return { customPalette: next };
+        }),
+      setCustomPalette: (palette) => set({ customPalette: [...palette] }),
+      resetPalette: () => set({ customPalette: [...DEFAULT_PALETTE] }),
       mastery: { ...DEFAULT_MASTERY_SETTINGS },
       setTechniqueFamiliarity: (tech, familiarity) =>
         set((s) => ({
@@ -207,16 +383,12 @@ export const useSettings = create<Settings>()(
           }
         })),
       toggleTheme: () =>
-        set((s) => ({
-          theme:
-            s.theme === 'dark'
-              ? 'light'
-              : s.theme === 'light'
-                ? 'rose'
-                : s.theme === 'rose'
-                  ? 'forest'
-                  : 'dark'
-        })),
+        set((s) => {
+          const idx = THEMES.findIndex((item) => item.id === s.theme);
+          const next = THEMES[(idx + 1) % THEMES.length].id;
+          return { theme: next };
+        }),
+      setTheme: (theme) => set({ theme }),
       set: (p) => set(p)
     }),
     {
@@ -230,6 +402,10 @@ export const useSettings = create<Settings>()(
         return {
           ...current,
           ...p,
+          customPalette:
+            Array.isArray(p.customPalette) && p.customPalette.length === 9
+              ? p.customPalette
+              : current.customPalette ?? [...DEFAULT_PALETTE],
           mastery: sanitizeMasterySettings(p.mastery)
         };
       }

@@ -42,13 +42,15 @@ function sideText(l: SetLedger, proved: boolean, t: Translator): string {
   return t(l.size === 1 ? '{n} cell, {placed} placed' : '{n} cells, {placed} placed', vars);
 }
 
-const Swatch = ({ color, label }: { color: number; label: string }) => (
-  <span className="set-swatch" style={{ background: PALETTE[color] }} role="img" aria-label={label} />
+const Swatch = ({ color, label, palette }: { color: number; label: string; palette: readonly string[] }) => (
+  <span className="set-swatch" style={{ background: palette[color] ?? PALETTE[color] }} role="img" aria-label={label} />
 );
 
 export function SetTracker() {
   const on = useSettings((s) => s.setTracker);
   const [ca, cb] = useSettings((s) => s.setColors);
+  const customPalette = useSettings((s) => s.customPalette);
+  const palette = customPalette && customPalette.length === 9 ? customPalette : PALETTE;
   const cells = useGame((s) => s.cells);
   const t = useT();
   const [why, setWhy] = useState(false);
@@ -63,8 +65,8 @@ export function SetTracker() {
   const ledgers = useMemo(() => setLedgers(a, b, cells.map((c) => c.value)), [a, b, cells]);
 
   if (!on || verdict.kind === 'empty') return null;
-  const swatchA = <Swatch color={ca} label={t('Colour {n}', { n: ca + 1 })} />;
-  const swatchB = <Swatch color={cb} label={t('Colour {n}', { n: cb + 1 })} />;
+  const swatchA = <Swatch color={ca} label={t('Colour {n}', { n: ca + 1 })} palette={palette} />;
+  const swatchB = <Swatch color={cb} label={t('Colour {n}', { n: cb + 1 })} palette={palette} />;
   const proved = verdict.kind === 'same';
   const [la, lb] = ledgers;
   const impossible = proved && (la.needs.length > la.empty || lb.needs.length > lb.empty);

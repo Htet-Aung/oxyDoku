@@ -3,13 +3,30 @@ dist/
 *.tsbuildinfo
 dist-ssr/
 *.local
+.env
+.env.*
+!.env.example
 .DS_Store
+Thumbs.db
 .vite/
 
-# local editor/agent config (contains machine-specific paths)
+# local editor & AI agent workspace configs (machine-specific paths)
 .claude/
+.gemini/
+.agents/
+.idea/
+.vscode/
 
-# rendered marketing screenshots
+# Cloudflare Wrangler local state & cache
+.wrangler/
+
+# package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# rendered marketing screenshots & test artifacts
 promo/
 test-results/
 playwright-report/
@@ -17,5 +34,3 @@ playwright-report/
 # translation work in progress (scripts/i18n.ts) and the corpus tool's shards
 .i18n-work/
 .corpus-shards/
-
-.idea/

@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSettings } from '../state/settings';
 import { useT } from '../content/i18n';
+import { PawIcon } from './Icons';
 
 // The tip shows once per ACTIVATION of the setting, not per mount: the
 // component also remounts on pause/resume, which should stay silent. The
@@ -46,7 +47,7 @@ export function Poodle() {
       style={{ transform: `translateX(${x}px)` }}
       aria-hidden="true"
     >
-      {tip && <span className="poodle-tip">{t('drag me')} 🐾</span>}
+      {tip && <span className="poodle-tip">{t('drag me')} <PawIcon size={14} /></span>}
       <img
         className="poodle"
         src="/poodle.png"
