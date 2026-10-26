@@ -27,29 +27,41 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install dependencies
         run: npm ci
 
       - name: Production web build
         run: npm run build
 
-      - name: Install Capacitor Android & sync
-        run: |
-          npm install --no-save @capacitor/core @capacitor/cli @capacitor/android
-          npx cap add android || true
-          npx cap sync android
+      - name: Sync Capacitor Android
+        run: npx cap sync android
 
       - name: Build Android Debug APK
         run: |
           cd android
-          chmod +x gradlew
+          chmod +x ./gradlew
           ./gradlew assembleDebug
+
+      - name: Copy APK
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk ./oxyDoku.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: oxyDoku-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: oxyDoku-apk
+          path: ./oxyDoku.apk
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: mobile-latest
+          name: oxyDoku Android App (Latest)
+          body: |
+            Automated Android APK build for oxyDoku.
+            
+            Download `oxyDoku.apk` below directly to your phone to install!
+          draft: false
+          prerelease: false
+          files: ./oxyDoku.apk

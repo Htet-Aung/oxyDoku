@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">oxyDoku</string>
+    <string name="title_activity_main">oxyDoku</string>
+    <string name="package_name">com.oxy.oxydoku</string>
+    <string name="custom_url_scheme">com.oxy.oxydoku</string>
+</resources>
