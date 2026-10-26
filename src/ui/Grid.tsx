@@ -887,7 +887,7 @@ export function Grid() {
 
   const onPointerDown = (e: React.PointerEvent) => {
     fingerDown.current = e.pointerType !== 'mouse';
-    const add = e.ctrlKey || e.metaKey || e.shiftKey;
+    const add = e.ctrlKey || e.metaKey || e.shiftKey || useGame.getState().shiftActive;
     // a second finger is a pinch (touch-action allows the zoom): the
     // browser's gesture from here on. A highlight the first finger lit
     // goes back; a drag it had committed keeps its cells and lets go of

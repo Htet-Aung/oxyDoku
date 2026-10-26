@@ -75,6 +75,14 @@ export function OxyDokuLogoIcon({ size = 32, className, ...rest }: IconProps) {
   );
 }
 
+export function ShiftIcon({ size = 16, className, ...rest }: IconProps) {
+  return (
+    <svg {...baseProps(size, className, rest)}>
+      <path d="M12 3l-8 8h5v10h6V11h5l-8-8z" />
+    </svg>
+  );
+}
+
 export function SunIcon({ size, className, ...rest }: IconProps) {
   return (
     <svg {...baseProps(size, className, rest)}>

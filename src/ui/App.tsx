@@ -742,8 +742,17 @@ export default function App() {
 
   /** where a pointer landed on the empty space around the board, until it lifts */
   const layoutTap = useRef<{ x: number; y: number } | null>(null);
-  const emptySpace = (el: EventTarget | null) =>
-    el instanceof HTMLElement && (el.classList.contains('layout') || el.classList.contains('board-col'));
+  const emptySpace = (el: EventTarget | null) => {
+    if (!(el instanceof HTMLElement || el instanceof SVGElement)) return false;
+    if (
+      el.closest(
+        'svg.sudoku-board, .board-wrap, button, [role="button"], [role="radio"], [role="tab"], a, input, select, textarea, .modal, .dialog, .mobile-numpad-container, .mobile-floating-panel, .mobile-bottom-dock, .header-dropdown-menu, .theme-picker-popover'
+      )
+    ) {
+      return false;
+    }
+    return true;
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -916,7 +925,7 @@ export default function App() {
           if (e.code === 'ArrowDown') r = (r + 1) % 9;
           if (e.code === 'ArrowLeft') c = (c + 8) % 9;
           if (e.code === 'ArrowRight') c = (c + 1) % 9;
-          select([r * 9 + c], e.shiftKey || e.metaKey || e.ctrlKey);
+          select([r * 9 + c], e.shiftKey || e.metaKey || e.ctrlKey || useGame.getState().shiftActive);
           break;
         }
       }
@@ -1048,7 +1057,20 @@ export default function App() {
             </div>
           </header>
 
-          <main className="mobile-main">
+          <main
+            className="mobile-main"
+            onPointerDown={(e) => {
+              layoutTap.current = emptySpace(e.target) ? { x: e.clientX, y: e.clientY } : null;
+            }}
+            onPointerUp={(e) => {
+              const down = layoutTap.current;
+              layoutTap.current = null;
+              if (down && emptySpace(e.target) && Math.hypot(e.clientX - down.x, e.clientY - down.y) <= SLOP_PX) {
+                select([], false);
+                useGame.getState().clearArmedDigits();
+              }
+            }}
+          >
             <div className="mobile-board-container">
               <Grid />
               <SetTracker />

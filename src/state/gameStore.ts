@@ -305,6 +305,8 @@ interface GameStore {
   /** hold-modifier override (Shift = corner, Ctrl/Alt = centre, both =
    *  colour); null = use `mode`. Never persisted. */
   tempMode: EntryMode | null;
+  /** Shift modifier active (multi-cell selection toggle; corner marks in digit mode) */
+  shiftActive: boolean;
   activeColor: number;
   autoCandidates: boolean;
   history: CellState[][];
@@ -410,6 +412,8 @@ interface GameStore {
   selectAllOf: (digit: number) => void;
   setMode: (mode: EntryMode) => void;
   setTempMode: (mode: EntryMode | null) => void;
+  toggleShift: () => void;
+  setShiftActive: (active: boolean) => void;
   setActiveColor: (c: number) => void;
   /** enter a digit in the current mode, or in the mode given (a held number key enters a corner mark) */
   input: (digit: number, as?: EntryMode) => void;
@@ -547,6 +551,7 @@ export const useGame = create<GameStore>()(
       pendingAssist: null,
       mode: 'digit' as EntryMode,
       tempMode: null,
+      shiftActive: false,
       activeColor: 0,
       autoCandidates: false,
       history: [],
@@ -847,9 +852,22 @@ export const useGame = create<GameStore>()(
             .filter((i) => i >= 0)
         })),
 
-      setMode: (mode) => set({ mode }),
+      setMode: (mode) => set({ mode, tempMode: null }),
       setTempMode: (tempMode) =>
         set((s) => (s.tempMode === tempMode ? {} : { tempMode })),
+      toggleShift: () =>
+        set((s) => {
+          const next = !s.shiftActive;
+          return {
+            shiftActive: next,
+            tempMode: next && s.mode === 'digit' ? 'corner' : next ? s.tempMode : null
+          };
+        }),
+      setShiftActive: (shiftActive) =>
+        set((s) => ({
+          shiftActive,
+          tempMode: shiftActive && s.mode === 'digit' ? 'corner' : shiftActive ? s.tempMode : null
+        })),
       setActiveColor: (activeColor) => set({ activeColor, mode: 'color' }),
 
       input: (digit, as) => {

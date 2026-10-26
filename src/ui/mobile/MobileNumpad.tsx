@@ -3,7 +3,7 @@ import { useGame, EntryMode } from '../../state/gameStore';
 import { useSettings, DEFAULT_PALETTE } from '../../state/settings';
 import { useT, msg } from '../../content/i18n';
 import { PALETTE } from '../Grid';
-import { EraserIcon, UndoIcon, RedoIcon, PencilIcon } from '../Icons';
+import { EraserIcon, UndoIcon, RedoIcon, PencilIcon, ShiftIcon } from '../Icons';
 
 const MODES: { id: EntryMode; label: string }[] = [
   { id: 'digit', label: msg('Digit') },
@@ -28,6 +28,8 @@ export function MobileNumpad() {
   const selection = useGame((s) => s.selection);
   const armedDigits = useGame((s) => s.armedDigits);
   const toggleArmedDigit = useGame((s) => s.toggleArmedDigit);
+  const shiftActive = useGame((s) => s.shiftActive);
+  const toggleShift = useGame((s) => s.toggleShift);
 
   const customPalette = useSettings((s) => s.customPalette);
   const palette = customPalette && customPalette.length === 9 ? customPalette : DEFAULT_PALETTE;
@@ -184,8 +186,20 @@ export function MobileNumpad() {
         })}
       </div>
 
-      {/* Prominent Erase bar right under the 3x3 grid */}
+      {/* Shift and Erase buttons */}
       <div className="mobile-numpad-bottom-row">
+        <button
+          type="button"
+          className={`mobile-shift-btn ${shiftActive ? 'active' : ''}`}
+          onClick={toggleShift}
+          title={t('Shift (multi-select cells, corner marks in digit mode)')}
+          aria-label={t('Shift')}
+          aria-pressed={shiftActive}
+        >
+          <ShiftIcon size={18} />
+          <span className="mobile-shift-label">{t('Shift')}</span>
+        </button>
+
         <button
           type="button"
           className="mobile-erase-btn"
@@ -200,7 +214,7 @@ export function MobileNumpad() {
           title={t('Erase (hold to wipe completely)')}
           aria-label={t('Erase')}
         >
-          <EraserIcon size={20} />
+          <EraserIcon size={18} />
           <span className="mobile-erase-label">{t('Erase')}</span>
         </button>
       </div>
