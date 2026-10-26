@@ -1,7 +1,7 @@
 // Settings dialog (gear) and help dialog (ⓘ): user preferences and a
 // reference for modes, shortcuts and the candidate model.
 import React, { useState, useRef, useEffect } from 'react';
-import { useSettings, MarkLayer, Font, THEMES, type Theme, DEFAULT_PALETTE, PALETTE_PRESETS, type LayoutMode } from '../state/settings';
+import { useSettings, MarkLayer, Font, THEMES, type Theme, DEFAULT_PALETTE, PALETTE_PRESETS, type LayoutMode, type NumpadInputMode } from '../state/settings';
 import { useGame } from '../state/gameStore';
 import { LANGS, useT, msg, rich } from '../content/i18n';
 import { Modal } from './Dialogs';
@@ -376,6 +376,34 @@ export function SettingsDialog({
               className={s.layoutMode === val ? 'active' : ''}
               aria-pressed={s.layoutMode === val}
               onClick={() => s.set({ layoutMode: val })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="setting-row stack" role="group" aria-label={t('Number pad input mode')}>
+        <div className="setting-text">
+          <span>{t('Number pad input mode')}</span>
+          <small>
+            {s.numpadInputMode === 'digitFirst'
+              ? t('Select a number on the pad first, then tap cells on the board to place it')
+              : t('Select cells on the board first, then tap numbers. Tapping numbers with no cells selected highlights them')}
+          </small>
+        </div>
+        <div className="segmented">
+          {(
+            [
+              ['cellFirst', t('Cell first')],
+              ['digitFirst', t('Digit first')]
+            ] as [NumpadInputMode, string][]
+          ).map(([val, label]) => (
+            <button
+              key={val}
+              className={s.numpadInputMode === val ? 'active' : ''}
+              aria-pressed={s.numpadInputMode === val}
+              onClick={() => s.set({ numpadInputMode: val })}
             >
               {label}
             </button>

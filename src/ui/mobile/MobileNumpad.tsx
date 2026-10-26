@@ -27,11 +27,15 @@ export function MobileNumpad() {
   const convertMarks = useGame((s) => s.convertMarks);
   const selection = useGame((s) => s.selection);
   const armedDigits = useGame((s) => s.armedDigits);
+  const armedDigit = useGame((s) => s.armedDigit);
+  const armedColor = useGame((s) => s.armedColor);
   const toggleArmedDigit = useGame((s) => s.toggleArmedDigit);
+  const armDigit = useGame((s) => s.armDigit);
   const shiftActive = useGame((s) => s.shiftActive);
   const toggleShift = useGame((s) => s.toggleShift);
 
   const customPalette = useSettings((s) => s.customPalette);
+  const numpadInputMode = useSettings((s) => s.numpadInputMode);
   const palette = customPalette && customPalette.length === 9 ? customPalette : DEFAULT_PALETTE;
   const t = useT();
 
@@ -65,8 +69,19 @@ export function MobileNumpad() {
     // If lifted before timer fired and still on the target key: standard tap
     if (!hold.fired && d === hold.digit) {
       if (selection.length === 0) {
-        // With nothing selected, tap arms/highlights that digit
-        toggleArmedDigit(d, false);
+        if (numpadInputMode === 'digitFirst') {
+          if (effectiveMode === 'color') {
+            useGame.setState({
+              armedColor: armedColor === d - 1 ? null : d - 1,
+              armedDigit: null,
+              armedDigits: armedColor === d - 1 ? [] : [d]
+            });
+          } else {
+            armDigit(armedDigit === d ? null : d);
+          }
+        } else {
+          toggleArmedDigit(d, effectiveMode === 'color');
+        }
       } else {
         input(d);
       }
@@ -155,9 +170,14 @@ export function MobileNumpad() {
       <div className="mobile-numpad-grid" role="group" aria-label={t('Numbers')}>
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => {
           const colorHex = palette[d - 1] ?? PALETTE[d - 1];
-          const isArmed = armedDigits.includes(d);
-          const isHeld = heldKey === d;
           const isColorMode = effectiveMode === 'color';
+          const isArmed =
+            numpadInputMode === 'digitFirst'
+              ? isColorMode
+                ? armedColor === d - 1
+                : armedDigit === d
+              : armedDigits.includes(d);
+          const isHeld = heldKey === d;
 
           return (
             <button

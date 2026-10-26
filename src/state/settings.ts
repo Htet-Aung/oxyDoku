@@ -214,10 +214,13 @@ export function deviceLang(): Lang {
 }
 
 export type LayoutMode = 'auto' | 'desktop' | 'mobile';
+export type NumpadInputMode = 'cellFirst' | 'digitFirst';
 
 interface Settings {
   /** UI layout mode: auto-detect by screen/pointer, or force desktop / mobile */
   layoutMode: LayoutMode;
+  /** numpad interaction model: cell-first (tap numbers to highlight) or digit-first (select number first, then tap cells) */
+  numpadInputMode: NumpadInputMode;
   /** the app's language */
   lang: Lang;
   /** board theme: dark, daylight or rosé */
@@ -310,6 +313,7 @@ export const useSettings = create<Settings>()(
   persist(
     (set) => ({
       layoutMode: 'auto',
+      numpadInputMode: 'cellFirst',
       lang: deviceLang(),
       theme: 'dark',
       font: 'classic',

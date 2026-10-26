@@ -976,6 +976,7 @@ export function Grid() {
     if (armed && !add) {
       select([cell], false);
       input(armed);
+      useGame.setState({ selection: [] });
       return;
     }
     dragging.current = true;
@@ -1090,6 +1091,7 @@ export function Grid() {
       useGame.setState({ selection: [] });
     } else if (armed && !t.additive && !t.left) {
       input(armed);
+      useGame.setState({ selection: [] });
     }
   };
   // the browser took the touch for a scroll or a pinch: a tentative

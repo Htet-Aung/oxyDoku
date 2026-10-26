@@ -24,11 +24,14 @@ export function ColorPaletteBar({ zHeld = false }: { zHeld?: boolean }) {
   const mode = useGame((s) => s.mode);
   const tempMode = useGame((s) => s.tempMode);
   const armedDigits = useGame((s) => s.armedDigits);
+  const armedDigit = useGame((s) => s.armedDigit);
   const armedColor = useGame((s) => s.armedColor);
   const toggleArmedDigit = useGame((s) => s.toggleArmedDigit);
+  const armDigit = useGame((s) => s.armDigit);
   const clearArmedDigits = useGame((s) => s.clearArmedDigits);
 
   const customPalette = useSettings((s) => s.customPalette);
+  const numpadInputMode = useSettings((s) => s.numpadInputMode);
   const setPaletteColor = useSettings((s) => s.setPaletteColor);
   const setCustomPalette = useSettings((s) => s.setCustomPalette);
   const resetPalette = useSettings((s) => s.resetPalette);
@@ -46,7 +49,19 @@ export function ColorPaletteBar({ zHeld = false }: { zHeld?: boolean }) {
   const selectedHasAnyColor = selection.some((i) => cells[i].colors.length > 0);
 
   const onSwatchClick = (digit: number) => {
-    toggleArmedDigit(digit, false);
+    if (numpadInputMode === 'digitFirst') {
+      if (isColorActive) {
+        useGame.setState({
+          armedColor: armedColor === digit - 1 ? null : digit - 1,
+          armedDigit: null,
+          armedDigits: armedColor === digit - 1 ? [] : [digit]
+        });
+      } else {
+        armDigit(armedDigit === digit ? null : digit);
+      }
+    } else {
+      toggleArmedDigit(digit, isColorActive);
+    }
   };
 
   const onClearColors = () => {
@@ -72,7 +87,12 @@ export function ColorPaletteBar({ zHeld = false }: { zHeld?: boolean }) {
         {palette.map((colorHex, k) => {
           const digit = k + 1;
           const contrast = getContrastTextColor(colorHex);
-          const isFiltered = armedDigits.includes(digit);
+          const isFiltered =
+            numpadInputMode === 'digitFirst'
+              ? isColorActive
+                ? armedColor === digit - 1
+                : armedDigit === digit
+              : armedDigits.includes(digit);
           const hasColor = selectedHasColor(k);
           const isArmedPaint = selection.length === 0 && armedColor === k;
 

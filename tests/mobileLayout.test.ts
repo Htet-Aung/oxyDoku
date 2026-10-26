@@ -19,6 +19,18 @@ describe('oxyDoku Mobile Layout & Palette Customization', () => {
     expect(useSettings.getState().layoutMode).toBe('desktop');
   });
 
+  it('defaults to cellFirst numpadInputMode', () => {
+    expect(useSettings.getState().numpadInputMode).toBe('cellFirst');
+  });
+
+  it('updates and persists numpadInputMode changes', () => {
+    useSettings.getState().set({ numpadInputMode: 'digitFirst' });
+    expect(useSettings.getState().numpadInputMode).toBe('digitFirst');
+
+    useSettings.getState().set({ numpadInputMode: 'cellFirst' });
+    expect(useSettings.getState().numpadInputMode).toBe('cellFirst');
+  });
+
   it('provides default 9-color palette for all digits 1 to 9', () => {
     const palette = useSettings.getState().customPalette;
     expect(palette).toHaveLength(9);
