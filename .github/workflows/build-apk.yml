@@ -21,14 +21,14 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Setup Java 17
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --include=dev
 
       - name: Production web build
         run: npm run build
@@ -40,7 +40,7 @@ jobs:
         run: |
           cd android
           chmod +x ./gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --no-daemon
 
       - name: Copy APK
         run: |
@@ -53,15 +53,7 @@ jobs:
           path: ./oxyDoku.apk
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        if: github.ref == 'refs/heads/main'
-        with:
-          tag_name: mobile-latest
-          name: oxyDoku Android App (Latest)
-          body: |
-            Automated Android APK build for oxyDoku.
-            
-            Download `oxyDoku.apk` below directly to your phone to install!
-          draft: false
-          prerelease: false
-          files: ./oxyDoku.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create v1.0.0-apk ./oxyDoku.apk --title "oxyDoku Android App" --notes "Direct APK download for Android phone. Download and install oxyDoku.apk directly." || gh release upload v1.0.0-apk ./oxyDoku.apk --clobber
