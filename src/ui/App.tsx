@@ -64,6 +64,10 @@ import { MyTechniquesDialog } from './MyTechniquesDialog';
 import { LiveSyncIndicator } from './LiveSyncIndicator';
 import { Modal } from './Dialogs';
 import type { LearnTarget } from './Learn';
+import { useIsMobileLayout } from './useIsMobileLayout';
+import { MobileNumpad } from './mobile/MobileNumpad';
+import { MobileBottomDock } from './mobile/MobileBottomDock';
+import { MobileFloatingPanel, type FloatingPanelTab } from './mobile/MobileFloatingPanel';
 
 // the guide is a third of the app's code and prose: fetched the first time
 // it opens (and precached for offline), never as part of loading the game
@@ -304,6 +308,20 @@ export default function App() {
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
 
+  const isMobile = useIsMobileLayout();
+  const [floatingTab, setFloatingTab] = useState<FloatingPanelTab | null>(null);
+
+  const [practiceMode, setPracticeMode] = [usePractice((s) => s.mode), usePractice.setState];
+  useEffect(() => {
+    if (isMobile) {
+      if (scannerOpen) {
+        setFloatingTab('patterns');
+      } else if (info?.practiceTech && practiceMode !== 'inactive') {
+        setFloatingTab('practice');
+      }
+    }
+  }, [scannerOpen, isMobile, info?.practiceTech, practiceMode]);
+
   useEffect(() => {
     if (!showThemePicker) return;
     const onClick = (e: MouseEvent) => {
@@ -326,7 +344,6 @@ export default function App() {
   const [customError, setCustomError] = useState<string | null>(null);
   // the report dialog, with the hint it is about when it came from "Looks wrong?"
   const [report, setReport] = useState<{ kind: ReportKind; hint?: Step } | null>(null);
-  const practiceMode = usePractice((s) => s.mode);
   const startPracticeMode = (tech: Tech | 'mixed') => {
     setDialog('none');
     if (tech === 'mixed') {
@@ -910,8 +927,114 @@ export default function App() {
   }, [input, erase, wipe, undo, redo, setMode, requestHint, select, selection, togglePause, convertMarks, start]);
 
   return (
-    <div className="app">
-      <header className="topbar analysis-topbar">
+    <div className={`app ${isMobile ? 'is-mobile-layout' : 'is-desktop-layout'}`}>
+      {isMobile ? (
+        <div className="mobile-shell">
+          <header className="mobile-topbar">
+            <div className="brand-group">
+              <div className="brand">
+                <span className="brand-mark">{BRAND_MARK}</span>
+                <h1>
+                  {BRAND[0]}<span className="brand-ui">{BRAND[1]}</span>
+                </h1>
+              </div>
+            </div>
+
+            <div className="mobile-header-center">
+              <button
+                type="button"
+                className="board-status-badge mobile-badge"
+                onClick={() => openLearn({ tab: 'rating' })}
+                title={t('How the HoDoKu rating works, in full')}
+              >
+                <span className="status-dot" aria-hidden="true">●</span>
+                <span className="status-text">
+                  {custom
+                    ? t('Custom')
+                    : info
+                      ? `${t.level(pickOf(info.level, info.score))} · ${info.score}`
+                      : ''}
+                </span>
+                {info?.practiceTech && (
+                  <span className="practice-badge"> · {t('Practice: {tech}', { tech: t.tech(info.practiceTech) })}</span>
+                )}
+              </button>
+              <LiveSyncIndicator />
+            </div>
+
+            <div className="mobile-topbar-right">
+              {showTimer && <Timer />}
+              <button
+                className="icon-btn theme-btn"
+                onClick={() => setShowThemePicker(!showThemePicker)}
+                title={t('Theme')}
+                aria-label={t('Theme')}
+              >
+                {renderThemeIcon(theme, 16)}
+              </button>
+              <button
+                className="icon-btn gear"
+                onClick={() => setShowHeaderMenu(!showHeaderMenu)}
+                title={t('Options')}
+                aria-label={t('Options')}
+                aria-expanded={showHeaderMenu}
+              >
+                <GearIcon size={16} />
+              </button>
+            </div>
+          </header>
+
+          <main className="mobile-main">
+            <div className="mobile-board-container">
+              <Grid />
+              <SetTracker />
+              {showPoodle && (!paused || won) && <Poodle />}
+            </div>
+
+            <MobileNumpad />
+
+            <MobileFloatingPanel
+              activeTab={floatingTab}
+              onClose={() => {
+                setFloatingTab(null);
+                if (scannerOpen) closeScanner();
+              }}
+              onOpenTab={(tab) => setFloatingTab(tab)}
+              onLearn={(tech) => openLearn({ tab: 'techniques', tech })}
+              onOpenMastery={() => setDialog('my-techniques')}
+              onShowSteps={info && !custom ? () => setDialog('steps') : undefined}
+              onStartPractice={(tech) => startPracticeMode(tech)}
+              onReportHint={(hint) => setReport({ kind: 'hint', hint })}
+            />
+          </main>
+
+          <MobileBottomDock
+            scannerOpen={scannerOpen || floatingTab === 'patterns'}
+            hintActive={!!(hint && hintStage !== 'hidden') || floatingTab === 'hint'}
+            toolsOpen={floatingTab === 'tools'}
+            onToggleScanner={() => {
+              if (floatingTab === 'patterns') {
+                setFloatingTab(null);
+                closeScanner();
+              } else {
+                setFloatingTab('patterns');
+                openScanner({ autoScan: true });
+              }
+            }}
+            onHint={() => {
+              setFloatingTab('hint');
+              const g = useGame.getState();
+              if (g.hintStage === 'tech') g.revealHint();
+              else if (g.hintStage === 'full' || g.hintStage === 'walk') g.applyHint();
+              else requestHint();
+            }}
+            onToggleTools={() => setFloatingTab(floatingTab === 'tools' ? null : 'tools')}
+            onOpenMenu={() => setShowHeaderMenu(true)}
+          />
+        </div>
+      ) : (
+        <>
+          <header className="topbar analysis-topbar">
         <div className="brand-group">
           <div className="brand">
             <span className="brand-mark">{BRAND_MARK}</span>
@@ -1313,6 +1436,120 @@ export default function App() {
           </footer>
         </aside>
       </main>
+      </>
+      )}
+
+      {/* Mobile Menu Modal */}
+      {showHeaderMenu && isMobile && (
+        <Modal title={t('Menu')} onClose={() => setShowHeaderMenu(false)}>
+          <div className="mobile-menu-modal-list">
+            <button
+              type="button"
+              className="mobile-menu-modal-item"
+              onClick={() => {
+                setShowHeaderMenu(false);
+                setDialog('new');
+              }}
+            >
+              <span className="menu-icon" aria-hidden="true">▦</span>
+              <div className="mobile-menu-modal-text">
+                <strong>{t('New puzzle')}</strong>
+                <small>{t('Pick difficulty or daily challenge')}</small>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className="mobile-menu-modal-item"
+              onClick={() => {
+                setShowHeaderMenu(false);
+                openLearn({ tab: 'techniques' });
+              }}
+            >
+              <span className="menu-icon" aria-hidden="true"><GraduationCapIcon size={18} /></span>
+              <div className="mobile-menu-modal-text">
+                <strong>{t('Learn')}</strong>
+                <small>{t('Technique guides, intuition & glossary')}</small>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className="mobile-menu-modal-item"
+              onClick={() => {
+                setShowHeaderMenu(false);
+                setDialog('my-techniques');
+              }}
+            >
+              <span className="menu-icon" aria-hidden="true"><GraduationCapIcon size={18} /></span>
+              <div className="mobile-menu-modal-text">
+                <strong>{t('My Techniques')}</strong>
+                <small>{t('Personal mastery settings')}</small>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className="mobile-menu-modal-item"
+              onClick={() => {
+                setShowHeaderMenu(false);
+                setDialog('settings');
+              }}
+            >
+              <span className="menu-icon" aria-hidden="true"><GearIcon size={18} /></span>
+              <div className="mobile-menu-modal-text">
+                <strong>{t('Settings')}</strong>
+                <small>{t('Colours, themes, font & assists')}</small>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className="mobile-menu-modal-item"
+              onClick={() => {
+                setShowHeaderMenu(false);
+                setDialog('io');
+              }}
+            >
+              <span className="menu-icon" aria-hidden="true">⇅</span>
+              <div className="mobile-menu-modal-text">
+                <strong>{t('Import puzzle')}</strong>
+                <small>{t('From clipboard or Sudoku Exchange')}</small>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className="mobile-menu-modal-item"
+              onClick={() => {
+                setShowHeaderMenu(false);
+                setDialog('restart');
+              }}
+            >
+              <span className="menu-icon" aria-hidden="true">↺</span>
+              <div className="mobile-menu-modal-text">
+                <strong>{t('Restart puzzle')}</strong>
+                <small>{t('Reset board to starting clues')}</small>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className="mobile-menu-modal-item"
+              onClick={() => {
+                setShowHeaderMenu(false);
+                setDialog('share');
+              }}
+            >
+              <span className="menu-icon" aria-hidden="true"><LinkIcon size={18} /></span>
+              <div className="mobile-menu-modal-text">
+                <strong>{t('Share puzzle')}</strong>
+                <small>{t('Challenge friends with a link')}</small>
+              </div>
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {dialog === 'new' && (
         <NewGameDialog

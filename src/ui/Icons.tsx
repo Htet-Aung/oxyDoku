@@ -355,3 +355,108 @@ export function ExternalLinkIcon({ size, className, ...rest }: IconProps) {
     </svg>
   );
 }
+
+export function EraserIcon({ size, className, ...rest }: IconProps) {
+  return (
+    <svg {...baseProps(size, className, rest)}>
+      <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" />
+      <path d="M22 21H7" />
+      <path d="m5 11 9 9" />
+    </svg>
+  );
+}
+
+export function UndoIcon({ size, className, ...rest }: IconProps) {
+  return (
+    <svg {...baseProps(size, className, rest)}>
+      <path d="M3 7v6h6" />
+      <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+    </svg>
+  );
+}
+
+export function RedoIcon({ size, className, ...rest }: IconProps) {
+  return (
+    <svg {...baseProps(size, className, rest)}>
+      <path d="M21 7v6h-6" />
+      <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13" />
+    </svg>
+  );
+}
+
+export function MenuIcon({ size, className, ...rest }: IconProps) {
+  return (
+    <svg {...baseProps(size, className, rest)}>
+      <line x1="4" x2="20" y1="6" y2="6" />
+      <line x1="4" x2="20" y1="12" y2="12" />
+      <line x1="4" x2="20" y1="18" y2="18" />
+    </svg>
+  );
+}
+
+export function ChevronUpIcon({ size, className, ...rest }: IconProps) {
+  return (
+    <svg {...baseProps(size, className, rest)}>
+      <polyline points="18 15 12 9 6 15" />
+    </svg>
+  );
+}
+
+export function ChevronDownIcon({ size, className, ...rest }: IconProps) {
+  return (
+    <svg {...baseProps(size, className, rest)}>
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+export function ChevronLeftIcon({ size, className, ...rest }: IconProps) {
+  return (
+    <svg {...baseProps(size, className, rest)}>
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
+export function ChevronRightIcon({ size, className, ...rest }: IconProps) {
+  return (
+    <svg {...baseProps(size, className, rest)}>
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
+export function GripIcon({ size, className, ...rest }: IconProps) {
+  return (
+    <svg {...baseProps(size, className, rest)}>
+      <circle cx="9" cy="12" r="1" fill="currentColor" />
+      <circle cx="9" cy="5" r="1" fill="currentColor" />
+      <circle cx="9" cy="19" r="1" fill="currentColor" />
+      <circle cx="15" cy="12" r="1" fill="currentColor" />
+      <circle cx="15" cy="5" r="1" fill="currentColor" />
+      <circle cx="15" cy="19" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function MinimizeIcon({ size, className, ...rest }: IconProps) {
+  return (
+    <svg {...baseProps(size, className, rest)}>
+      <polyline points="4 14 10 14 10 20" />
+      <polyline points="20 10 14 10 14 4" />
+      <line x1="14" x2="21" y1="10" y2="3" />
+      <line x1="3" x2="10" y1="21" y2="14" />
+    </svg>
+  );
+}
+
+export function MaximizeIcon({ size, className, ...rest }: IconProps) {
+  return (
+    <svg {...baseProps(size, className, rest)}>
+      <polyline points="15 3 21 3 21 9" />
+      <polyline points="9 21 3 21 3 15" />
+      <line x1="21" x2="14" y1="3" y2="10" />
+      <line x1="3" x2="10" y1="21" y2="14" />
+    </svg>
+  );
+}

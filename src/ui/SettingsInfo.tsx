@@ -1,7 +1,7 @@
 // Settings dialog (gear) and help dialog (ⓘ): user preferences and a
 // reference for modes, shortcuts and the candidate model.
 import React, { useState, useRef, useEffect } from 'react';
-import { useSettings, MarkLayer, Font, THEMES, type Theme } from '../state/settings';
+import { useSettings, MarkLayer, Font, THEMES, type Theme, DEFAULT_PALETTE, PALETTE_PRESETS, type LayoutMode } from '../state/settings';
 import { useGame } from '../state/gameStore';
 import { LANGS, useT, msg, rich } from '../content/i18n';
 import { Modal } from './Dialogs';
@@ -12,7 +12,7 @@ import { useLearnLocale } from './useLearnLocale';
 import { PRIVACY_URL } from '../content/staticRoutes';
 import { PALETTE } from './Grid';
 import { countMasteryStats } from '../content/mastery';
-import { CheckIcon } from './Icons';
+import { CheckIcon, PaletteIcon } from './Icons';
 
 // The rating summary in the chosen language. English is at hand; a
 // translation comes from the guide's own locale file (useLearnLocale.ts),
@@ -357,6 +357,98 @@ export function SettingsDialog({
         value={s.showPoodle}
         onChange={(v) => s.set({ showPoodle: v })}
       />
+
+      <div className="setting-row stack" role="group" aria-label={t('Layout mode')}>
+        <div className="setting-text">
+          <span>{t('Layout mode')}</span>
+          <small>{t('Switch between desktop sidebar layout and mobile numpad layout')}</small>
+        </div>
+        <div className="segmented">
+          {(
+            [
+              ['auto', t('Auto')],
+              ['mobile', t('Mobile')],
+              ['desktop', t('Desktop')]
+            ] as [LayoutMode, string][]
+          ).map(([val, label]) => (
+            <button
+              key={val}
+              className={s.layoutMode === val ? 'active' : ''}
+              aria-pressed={s.layoutMode === val}
+              onClick={() => s.set({ layoutMode: val })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="setting-row stack" role="group" aria-label={t('Number & Palette Colours')}>
+        <div className="setting-text">
+          <span>{t('Number & Palette Colours')}</span>
+          <small>{t('Customise the colour of each digit (1 to 9) on the numpad and board')}</small>
+        </div>
+        <div className="palette-customizer-grid settings-palette-grid">
+          {(s.customPalette && s.customPalette.length === 9 ? s.customPalette : DEFAULT_PALETTE).map((colorHex, k) => {
+            const digit = k + 1;
+            return (
+              <div key={digit} className="palette-color-row">
+                <span className="palette-row-label">
+                  <strong>{digit}</strong>
+                </span>
+                <div className="palette-row-inputs">
+                  <input
+                    type="color"
+                    className="palette-color-picker"
+                    value={colorHex}
+                    onChange={(e) => s.setPaletteColor(k, e.target.value)}
+                    aria-label={t('Colour {n} picker', { n: digit })}
+                  />
+                  <input
+                    type="text"
+                    className="palette-color-hex"
+                    value={colorHex}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+                        s.setPaletteColor(k, val);
+                      }
+                    }}
+                    aria-label={t('Colour {n} hex code', { n: digit })}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="palette-presets-section">
+          <span className="tools-section-title">{t('Presets')}</span>
+          <div className="palette-presets-row">
+            {PALETTE_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                className="preset-btn"
+                onClick={() => s.setCustomPalette([...preset.colors])}
+              >
+                <span className="preset-name">{t(preset.name)}</span>
+                <span className="preset-preview">
+                  {preset.colors.map((c, i) => (
+                    <span key={i} className="preset-dot" style={{ backgroundColor: c }} />
+                  ))}
+                </span>
+              </button>
+            ))}
+            <button
+              type="button"
+              className="ghost preset-btn reset-palette-btn"
+              onClick={s.resetPalette}
+            >
+              {t('Reset')}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <h4 className="setting-group">{t('Pattern Scanner & My Techniques')}</h4>
       <div className="setting-row">

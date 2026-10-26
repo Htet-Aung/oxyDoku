@@ -213,7 +213,11 @@ export function deviceLang(): Lang {
   return 'en';
 }
 
+export type LayoutMode = 'auto' | 'desktop' | 'mobile';
+
 interface Settings {
+  /** UI layout mode: auto-detect by screen/pointer, or force desktop / mobile */
+  layoutMode: LayoutMode;
   /** the app's language */
   lang: Lang;
   /** board theme: dark, daylight or rosé */
@@ -305,6 +309,7 @@ interface Settings {
 export const useSettings = create<Settings>()(
   persist(
     (set) => ({
+      layoutMode: 'auto',
       lang: deviceLang(),
       theme: 'dark',
       font: 'classic',
