@@ -43,10 +43,10 @@
     <text x="233" y="246" font-family="Segoe UI, -apple-system, sans-serif" font-size="36" font-weight="700" fill="#b996f0" text-anchor="middle">3</text>
   </g>
 
-  <!-- Center Text Badge: "oxy" + "DOKU" -->
+  <!-- Center Text Badge: "oxy" + "D O K U" -->
   <g filter="url(#shadow)">
-    <rect x="146" y="202" width="220" height="108" rx="22" fill="#12141e" fill-opacity="0.96" stroke="#5b8fe0" stroke-width="3" stroke-opacity="0.85"/>
+    <rect x="138" y="190" width="236" height="132" rx="24" fill="#10121c" fill-opacity="0.97" stroke="#5b8fe0" stroke-width="3.5" stroke-opacity="0.9"/>
   </g>
-  <text x="256" y="270" font-family="Segoe UI, -apple-system, sans-serif" font-size="76" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="-1">oxy</text>
-  <text x="256" y="296" font-family="Segoe UI, Bahnschrift, sans-serif" font-size="20" font-weight="700" fill="#7fb0f5" text-anchor="middle" letter-spacing="4">DOKU</text>
+  <text x="256" y="258" font-family="Segoe UI, -apple-system, sans-serif" font-size="72" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="-1">oxy</text>
+  <text x="256" y="304" font-family="Segoe UI, Bahnschrift, sans-serif" font-size="18" font-weight="700" fill="#bae6fd" text-anchor="middle" letter-spacing="6">DOKU</text>
 </svg>

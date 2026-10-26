@@ -20,7 +20,7 @@ def render_icon(target_size, mode='standard'):
     draw = ImageDraw.Draw(img)
     center = canvas_size / 2.0
 
-    # 1. Background
+    # 1. Background (only for standard and round icons)
     if mode in ('standard', 'round'):
         bg_radius = int(center if mode == 'round' else 230)
         bg_rect = [0, 0, canvas_size, canvas_size]
@@ -66,7 +66,7 @@ def render_icon(target_size, mode='standard'):
             draw.rounded_rectangle(bg_rect, radius=bg_radius, outline=border_col, width=6)
 
     # 2. Grid Dimensions
-    # In foreground mode, adaptive icon visible safe-zone is central 66% (radius ~338 on 1024)
+    # In foreground mode, adaptive icon safe zone is central 66% (diameter ~676px)
     grid_size = 530 if mode == 'foreground' else 580
     gx0 = center - grid_size / 2.0
     gy0 = center - grid_size / 2.0
@@ -131,9 +131,9 @@ def render_icon(target_size, mode='standard'):
         nh = bbox[3] - bbox[1]
         draw.text((cx - nw / 2.0 - bbox[0], cy - nh / 2.0 - bbox[1]), num, font=font_num, fill=col)
 
-    # 4. Central Hero Text: "oxy" + "DOKU"
-    oxy_font_size = 175 if mode == 'foreground' else 190
-    doku_font_size = 48 if mode == 'foreground' else 52
+    # 4. Central Hero Text: "oxy" + "D  O  K  U"
+    oxy_font_size = 155 if mode == 'foreground' else 170
+    doku_font_size = 40 if mode == 'foreground' else 44
     try:
         font_oxy = ImageFont.truetype("C:/Windows/Fonts/segoeuib.ttf", oxy_font_size)
         font_doku = ImageFont.truetype("C:/Windows/Fonts/bahnschrift.ttf", doku_font_size)
@@ -142,42 +142,57 @@ def render_icon(target_size, mode='standard'):
         font_doku = ImageFont.load_default()
 
     text_oxy = "oxy"
-    bbox_oxy = draw.textbbox((0, 0), text_oxy, font=font_oxy)
-    ow = bbox_oxy[2] - bbox_oxy[0]
-    oh = bbox_oxy[3] - bbox_oxy[1]
-    ox = center - ow / 2.0 - bbox_oxy[0]
-    oy = gy0 + cell_w * 1.5 - oh / 2.0 - bbox_oxy[1] - 18
+    text_doku = "D  O  K  U"
 
-    # Text pill background
-    pad_x = 45
-    pad_y = 20
+    bb_oxy = font_oxy.getbbox(text_oxy)
+    bb_doku = font_doku.getbbox(text_doku)
+
+    oxy_w = bb_oxy[2] - bb_oxy[0]
+    oxy_h = bb_oxy[3] - bb_oxy[1]
+    doku_w = bb_doku[2] - bb_doku[0]
+    doku_h = bb_doku[3] - bb_doku[1]
+
+    # Explicit vertical gap between bottom of 'y' and top of 'DOKU'
+    gap = 24 if mode == 'foreground' else 26
+    total_content_h = oxy_h + gap + doku_h
+
+    # Vertically center the text stack in the grid
+    top_ink_y = center - total_content_h / 2.0
+    oy = top_ink_y - bb_oxy[1]
+    ox = center - oxy_w / 2.0 - bb_oxy[0]
+
+    oxy_ink_bottom = oy + bb_oxy[3]
+    sy = oxy_ink_bottom + gap - bb_doku[1]
+    sx = center - doku_w / 2.0 - bb_doku[0]
+    doku_ink_bottom = sy + bb_doku[3]
+
+    # Pill container dimensions
+    pad_x = 46 if mode == 'foreground' else 52
+    pad_top = 26 if mode == 'foreground' else 30
+    pad_bottom = 22 if mode == 'foreground' else 26
+
     pill = [
-        ox + bbox_oxy[0] - pad_x,
-        oy + bbox_oxy[1] - pad_y,
-        ox + bbox_oxy[2] + pad_x,
-        oy + bbox_oxy[3] + pad_y + 36
+        center - max(oxy_w, doku_w) / 2.0 - pad_x,
+        top_ink_y - pad_top,
+        center + max(oxy_w, doku_w) / 2.0 + pad_x,
+        doku_ink_bottom + pad_bottom
     ]
 
     # Pill shadow
     shadow_img = Image.new('RGBA', (canvas_size, canvas_size), (0, 0, 0, 0))
     s_draw = ImageDraw.Draw(shadow_img)
-    s_draw.rounded_rectangle([pill[0], pill[1] + 12, pill[2], pill[3] + 12], radius=44, fill=(0, 0, 0, 180))
+    s_draw.rounded_rectangle([pill[0], pill[1] + 12, pill[2], pill[3] + 12], radius=42, fill=(0, 0, 0, 180))
     shadow_img = shadow_img.filter(ImageFilter.GaussianBlur(radius=16))
     img.paste(shadow_img, (0, 0), shadow_img)
 
     # Frosted pill
-    draw.rounded_rectangle(pill, radius=42, fill=(18, 20, 30, 248), outline=(91, 143, 224, 220), width=6)
+    draw.rounded_rectangle(pill, radius=38, fill=(16, 18, 28, 248), outline=(91, 143, 224, 215), width=6)
 
-    # "oxy"
+    # "oxy" in bold pure white
     draw.text((ox, oy), text_oxy, font=font_oxy, fill=(255, 255, 255, 255))
 
-    # "DOKU"
-    text_sub = "DOKU"
-    bbox_sub = draw.textbbox((0, 0), text_sub, font=font_doku)
-    sw = bbox_sub[2] - bbox_sub[0]
-    sx = center - sw / 2.0 - bbox_sub[0]
-    sy = oy + oh + 18
-    draw.text((sx, sy), text_sub, font=font_doku, fill=(127, 176, 245, 240))
+    # "D  O  K  U" in high-contrast bright ice-cyan (#BAE6FD) - fully visible and readable
+    draw.text((sx, sy), text_doku, font=font_doku, fill=(186, 230, 253, 255))
 
     # Downsample to target size with highest quality antialiasing
     return img.resize((target_size, target_size), Image.Resampling.LANCZOS)

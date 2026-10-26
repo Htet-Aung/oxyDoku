@@ -53,7 +53,8 @@ import {
   FishIcon,
   SparklesIcon,
   TerminalIcon,
-  InfoIcon
+  InfoIcon,
+  OxyDokuLogoIcon
 } from './Icons';
 import { PracticePanel } from './PracticePanel';
 import { usePractice } from '../state/practiceStore';
@@ -931,7 +932,7 @@ export default function App() {
           <header className="mobile-topbar">
             <div className="brand-group">
               <div className="brand">
-                <span className="brand-mark">{BRAND_MARK}</span>
+                <span className="brand-mark" aria-hidden="true"><OxyDokuLogoIcon size={30} /></span>
                 <h1>
                   {BRAND[0]}<span className="brand-ui">{BRAND[1]}</span>
                 </h1>
@@ -1100,7 +1101,7 @@ export default function App() {
           <header className="topbar analysis-topbar">
         <div className="brand-group">
           <div className="brand">
-            <span className="brand-mark">{BRAND_MARK}</span>
+            <span className="brand-mark" aria-hidden="true"><OxyDokuLogoIcon size={30} /></span>
             <h1>
               {BRAND[0]}<span className="brand-ui">{BRAND[1]}</span>
             </h1>

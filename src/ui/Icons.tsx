@@ -23,6 +23,58 @@ function baseProps(size: number | string = 16, className?: string, rest?: React.
   };
 }
 
+export function OxyDokuLogoIcon({ size = 32, className, ...rest }: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 512 512"
+      fill="none"
+      className={`brand-logo-icon ${className ?? ''}`.trim()}
+      aria-hidden="true"
+      focusable="false"
+      {...rest}
+    >
+      <defs>
+        <linearGradient id="brandBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#1e2238" />
+          <stop offset="100%" stopColor="#10121d" />
+        </linearGradient>
+        <radialGradient id="brandGlowGrad" cx="35%" cy="35%" r="65%">
+          <stop offset="0%" stopColor="#5b8fe0" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#5b8fe0" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      <rect width="512" height="512" rx="115" fill="url(#brandBgGrad)" />
+      <rect width="512" height="512" rx="115" fill="url(#brandGlowGrad)" />
+      <rect width="512" height="512" rx="115" fill="none" stroke="#5b8fe0" strokeWidth="6" strokeOpacity="0.35" />
+
+      <g transform="translate(116, 116)">
+        <rect width="280" height="280" rx="24" fill="#1c2030" fillOpacity="0.9" stroke="#5b8fe0" strokeWidth="4" strokeOpacity="0.7" />
+        <rect x="4" y="4" width="88" height="88" rx="14" fill="#5b8fe0" fillOpacity="0.22" />
+        <rect x="188" y="4" width="88" height="88" rx="14" fill="#d9a13c" fillOpacity="0.18" />
+        <rect x="188" y="188" width="88" height="88" rx="14" fill="#9b74d8" fillOpacity="0.25" />
+        <g stroke="#9aa3b5" strokeOpacity="0.45" strokeWidth="2.5" strokeLinecap="round">
+          <line x1="93.3" y1="8" x2="93.3" y2="272" />
+          <line x1="186.6" y1="8" x2="186.6" y2="272" />
+          <line x1="8" y1="93.3" x2="272" y2="93.3" />
+          <line x1="8" y1="186.6" x2="272" y2="186.6" />
+        </g>
+        <text x="47" y="60" fontFamily="Segoe UI, -apple-system, sans-serif" fontSize="36" fontWeight="700" fill="#7fb0f5" textAnchor="middle">4</text>
+        <text x="233" y="60" fontFamily="Segoe UI, -apple-system, sans-serif" fontSize="36" fontWeight="700" fill="#e6c74c" textAnchor="middle">9</text>
+        <text x="47" y="246" fontFamily="Segoe UI, -apple-system, sans-serif" fontSize="36" fontWeight="700" fill="#b0bed2" textAnchor="middle">7</text>
+        <text x="233" y="246" fontFamily="Segoe UI, -apple-system, sans-serif" fontSize="36" fontWeight="700" fill="#b996f0" textAnchor="middle">3</text>
+      </g>
+
+      <rect x="138" y="190" width="236" height="132" rx="24" fill="#10121c" fillOpacity="0.97" stroke="#5b8fe0" strokeWidth="3.5" strokeOpacity="0.9" />
+      <text x="256" y="258" fontFamily="Segoe UI, -apple-system, sans-serif" fontSize="72" fontWeight="800" fill="#ffffff" textAnchor="middle" letterSpacing="-1">oxy</text>
+      <text x="256" y="304" fontFamily="Segoe UI, Bahnschrift, sans-serif" fontSize="18" fontWeight="700" fill="#bae6fd" textAnchor="middle" letterSpacing="6">DOKU</text>
+    </svg>
+  );
+}
+
 export function SunIcon({ size, className, ...rest }: IconProps) {
   return (
     <svg {...baseProps(size, className, rest)}>
