@@ -28,8 +28,6 @@ export function MobileNumpad() {
   const selection = useGame((s) => s.selection);
   const armedDigits = useGame((s) => s.armedDigits);
   const toggleArmedDigit = useGame((s) => s.toggleArmedDigit);
-  const multiSelect = useGame((s) => s.multiSelect);
-  const setMultiSelect = useGame((s) => s.setMultiSelect);
 
   const customPalette = useSettings((s) => s.customPalette);
   const palette = customPalette && customPalette.length === 9 ? customPalette : DEFAULT_PALETTE;
@@ -116,15 +114,6 @@ export function MobileNumpad() {
               {t(m.label)}
             </button>
           ))}
-          <button
-            type="button"
-            className={`mobile-mode-pill multi-btn ${multiSelect ? 'active' : ''}`}
-            aria-pressed={multiSelect}
-            onClick={() => setMultiSelect(!multiSelect)}
-            title={t('Multi-select')}
-          >
-            {t('Multi')}
-          </button>
         </div>
 
         <div className="mobile-utility-actions">

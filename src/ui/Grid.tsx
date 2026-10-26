@@ -494,7 +494,6 @@ export function Grid() {
   const armedColor = useGame((s) => s.armedColor);
   const input = useGame((s) => s.input);
   const chainTap = useGame((s) => s.chainTap);
-  const multiSelect = useGame((s) => s.multiSelect);
   const markContract = useGame((s) => s.markContract);
   const {
     highlightPeers,
@@ -845,8 +844,7 @@ export function Grid() {
   // otherwise they are the selection (the long press and the double-click
   // are one gesture to the help, so they agree)
   const selectDigit = (v: number) => {
-    if (useGame.getState().multiSelect) select(cells.map((c, i) => (c.value === v ? i : -1)).filter((i) => i >= 0), true);
-    else selectAllOf(v);
+    selectAllOf(v);
   };
 
   const startLongPress = (cell: number) => {
@@ -889,11 +887,7 @@ export function Grid() {
 
   const onPointerDown = (e: React.PointerEvent) => {
     fingerDown.current = e.pointerType !== 'mouse';
-    const g = useGame.getState();
-    // multi-select makes every plain press additive; with a digit armed
-    // the press still enters the digit, as number-first entry promises
-    const multi = g.multiSelect && !g.armedDigit;
-    const add = e.ctrlKey || e.metaKey || e.shiftKey || multi;
+    const add = e.ctrlKey || e.metaKey || e.shiftKey;
     // a second finger is a pinch (touch-action allows the zoom): the
     // browser's gesture from here on. A highlight the first finger lit
     // goes back; a drag it had committed keeps its cells and lets go of
@@ -936,9 +930,8 @@ export function Grid() {
     }
     const cell = cellFromEvent(e);
     if (cell === null) return;
-    // a drag from a cell that multi-select had selected takes cells out
     const was = useGame.getState().selection;
-    paint.current = multi && was.includes(cell) ? 'remove' : 'add';
+    paint.current = was.length > 1 && was.includes(cell) && add ? 'remove' : 'add';
     if (e.pointerType === 'touch') {
       touch.current = {
         cell,
@@ -1110,10 +1103,6 @@ export function Grid() {
     // names the mode in which this cannot happen. Only where the page had
     // room to scroll under the finger: a pinch or a system gesture cancels
     // a drag too, on a tablet as well, and the mode would change nothing
-    if (tc && tc.intent === 'drag' && !tc.chain && (tc.pans.up || tc.pans.down) && !useGame.getState().multiSelect && !dragTipShown) {
-      dragTipShown = true;
-      useGame.setState({ notice: t('Tip: Multi-select (M) lets you drag without the page scrolling') });
-    }
     endPointer();
   };
   // a long press on Android asks for a context menu: the board has none,
@@ -1158,7 +1147,6 @@ export function Grid() {
         onLostPointerCapture={onLostPointerCapture}
         onDoubleClick={onDoubleClick}
         onContextMenu={onContextMenu}
-        data-multiselect={multiSelect ? 'true' : undefined}
         tabIndex={0}
         role="application"
         aria-label={t('Sudoku board. Arrow keys move between cells, digits enter, Backspace erases.')}

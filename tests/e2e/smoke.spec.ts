@@ -167,22 +167,9 @@ test.describe('desktop, 1280 x 800', () => {
     await drag(0, 28, 6);
     await page.keyboard.up('Alt');
     await expect(status).toHaveText('8 cells selected.');
-    // the Multi button is for fingers; the key works for everyone
-    await expect(page.locator('.mode-btn.multi')).toBeHidden();
-    await expect(board).not.toHaveAttribute('data-multiselect', 'true');
-    await page.keyboard.press('m');
-    await expect(board).toHaveAttribute('data-multiselect', 'true');
-    await expect(page.locator('.toast')).toContainText('Multi-select on');
-    // a plain click now adds to the eight, and a second one takes out
-    const mid = await cellBox(page, 40);
-    await page.mouse.click(mid.x, mid.y);
-    await expect(status).toHaveText('9 cells selected.');
-    await page.mouse.click(mid.x, mid.y);
-    await expect(status).toHaveText('8 cells selected.');
-    // Escape leaves the mode and clears the selection
+    // Escape clears the selection
     await page.keyboard.press('Escape');
     await expect(status).toHaveText('No cell selected.');
-    await expect(board).not.toHaveAttribute('data-multiselect', 'true');
   });
 
   test('B rings the cells with two candidates, once there are candidates to read', async ({ page }) => {
@@ -733,68 +720,6 @@ test.describe('phone, 390 x 844', () => {
     const key = (await page.locator('.num-btn').first().boundingBox())!;
     expect(key.width).toBeLessThan(34);
     expect(key.height).toBeGreaterThanOrEqual(44);
-  });
-});
-
-test.describe('phone, 390 x 844, multi-select', () => {
-  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
-
-  test('Multi: a drag selects at once in any direction, a tap adds or removes, the page stays put', async ({ page }) => {
-    await open(page);
-    const status = page.locator('#board-status');
-    const board = page.locator('svg.board');
-    const multi = page.locator('.mode-btn.multi');
-    const scrolled = () =>
-      page.evaluate(() => Math.max(window.scrollY, ...[...document.querySelectorAll('*')].map((el) => el.scrollTop)));
-    const cdp = await page.context().newCDPSession(page);
-    // a finger that lands and goes straight on, with no rest: two samples.
-    // The landing and the first move go out back to back: a round trip
-    // between them could outlast the board's 100 ms rest and commit a drag
-    const flick = async (fromCell: number, toCell: number) => {
-      const from = await cellBox(page, fromCell);
-      const to = await cellBox(page, toCell);
-      const at = (part: number) => ({ x: from.x + (to.x - from.x) * part, y: from.y + (to.y - from.y) * part });
-      await Promise.all([
-        cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [at(0)] }),
-        cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [at(0.5)] })
-      ]);
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [at(1)] });
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    };
-    // the button is there for a finger, off, and the board scrolls the page
-    await expect(multi).toBeVisible();
-    await expect(multi).toHaveAttribute('aria-pressed', 'false');
-    await expect(board).toHaveCSS('touch-action', 'pan-y pinch-zoom');
-    await multi.tap();
-    await expect(multi).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('.toast')).toContainText('Multi-select on');
-    await expect(board).toHaveAttribute('data-multiselect', 'true');
-    // no finger pans from the board, a pinch still zooms: the tablet's rule
-    await expect(board).toHaveCSS('touch-action', 'pinch-zoom');
-    // straight down the third column, r1c3 to r9c3, with no rest: nine
-    // cells, and the page has not moved
-    await flick(2, 74);
-    await expect(status).toHaveText('9 cells selected.');
-    expect(await scrolled()).toBe(0);
-    // a tap adds a cell, a second tap on it takes it out
-    const mid = await cellBox(page, 40);
-    await page.touchscreen.tap(mid.x, mid.y);
-    await expect(status).toHaveText('10 cells selected.');
-    await page.touchscreen.tap(mid.x, mid.y);
-    await expect(status).toHaveText('9 cells selected.');
-    // a drag from a selected cell paints cells out: r1c3 to r4c3 leaves
-    // the five below
-    await flick(2, 29);
-    await expect(status).toHaveText('5 cells selected.');
-    // Escape turns the mode off and clears the selection
-    await page.keyboard.press('Escape');
-    await expect(status).toHaveText('No cell selected.');
-    await expect(multi).toHaveAttribute('aria-pressed', 'false');
-    await expect(board).toHaveCSS('touch-action', 'pan-y pinch-zoom');
-    // and the swipe is the page's again
-    await flick(40, 4);
-    await expect.poll(scrolled).toBeGreaterThan(20);
-    await expect(status).toHaveText('No cell selected.');
   });
 });
 

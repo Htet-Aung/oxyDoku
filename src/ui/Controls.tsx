@@ -75,8 +75,6 @@ export function Controls({
   const assisted = useGame((s) => s.assisted);
   const pending = useGame((s) => s.pendingAssist);
   const askAssist = useGame((s) => s.askAssist);
-  const multiSelect = useGame((s) => s.multiSelect);
-  const setMultiSelect = useGame((s) => s.setMultiSelect);
   const [help, setHelp] = useState(false);
   const [showTools, setShowTools] = useState(false);
 
@@ -262,13 +260,6 @@ export function Controls({
                   {t(m.label)} {m.keyHint && <span className="key-hint">({m.keyHint})</span>}
                 </button>
               ))}
-              <button
-                className={`mode-pill multi${multiSelect ? ' active' : ''}`}
-                onClick={() => setMultiSelect(!multiSelect)}
-                title={t('Multi-select: tap cells to add or remove them, drag to paint them in or out; the page scrolls from beside the board')}
-              >
-                {t('Multi')}
-              </button>
             </div>
           </div>
         </div>

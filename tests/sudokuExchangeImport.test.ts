@@ -67,7 +67,6 @@ function resetGameStore() {
     errors: [],
     proofs: [],
     notice: null,
-    multiSelect: false,
     revertIndex: null,
     practiceTarget: null,
     practiceFound: false,

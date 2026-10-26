@@ -46,7 +46,6 @@ const ui: Dictionary = {
   "Swap corner and centre marks": "Bytt hjørne- og sentermarkeringer",
   "Number Pad": "Talltastatur",
   "Entry mode": "Inndatamodus",
-  "Multi-select": "Flervalg",
   "Numbers": "Tall",
   "Number {d}": "Tall {d}",
   "Erase (hold to wipe completely)": "Slett (hold for å slette alt)",
@@ -540,10 +539,6 @@ const ui: Dictionary = {
   "Select multiple cells": "Velg flere ruter",
   "Touch: drag": "Berøring: dra",
   "Select a run of cells (on a phone a vertical swipe scrolls the page: rest a moment first to drag in any direction)": "Velg en rekke ruter (på en telefon ruller et loddrett sveip siden: hold fingeren i ro et øyeblikk først for å dra i hvilken som helst retning)",
-  "Multi": "Flervalg",
-  "Multi-select on: tap cells to add or remove them, drag to paint. The same again, or Escape, turns it off": "Flervalg på: trykk på ruter for å legge dem til eller ta dem bort, dra for å male. Det samme en gang til, eller Escape, slår det av",
-  "Multi-select off": "Flervalg av",
-  "Tip: Multi-select (M) lets you drag without the page scrolling": "Tips: med Flervalg (M) kan du dra uten at siden ruller",
   "Touch: hold a number": "Berøring: hold inne et tall",
   "Enter it as a corner mark, whatever the mode": "Skriv det inn som hjørnenotat, uansett modus",
   "Alt + drag": "Alt + dra",
@@ -586,7 +581,6 @@ const ui: Dictionary = {
   "unassisted solve||in the help": "Løst uten hjelp",
   "Hints name cells by row and column: r2c3 is row 2, column 3, counted from the top left.": "Hintene navngir ruter etter rad og kolonne: r2c3 er rad 2, kolonne 3, talt fra øverst til venstre.",
   "Touch": "Berøringsskjerm",
-  "Tap to select, and use the on-screen mode and number buttons. To select several cells, drag across them. On a phone a quick swipe up or down over the board scrolls the page instead: rest your finger on the first cell for a moment, then drag in any direction. Or turn on Multi: then a tap adds a cell or takes it out, a drag paints cells in or out whichever way it goes, and the page scrolls from beside the board. Hold a number key for a moment to enter it as a corner mark without changing mode. Tap the selected cell again, or anywhere beside the board, to clear the highlight, and long-press a digit on the board to highlight all of its cells.": "Trykk for å velge, og bruk knappene for modus og tall på skjermen. For å velge flere ruter drar du fingeren over dem. På en telefon ruller et raskt sveip opp eller ned over brettet siden i stedet: la fingeren hvile på den første ruten et øyeblikk, og dra så i hvilken som helst retning. Eller slå på Flervalg: da legger et trykk til en rute eller tar den bort, et drag legger til eller tar bort ruter uansett retning, og siden ruller fra utenfor brettet. Hold inne en talltast et øyeblikk for å skrive tallet som hjørnenotat uten å bytte modus. Trykk på den valgte ruten igjen, eller hvor som helst ved siden av brettet, for å fjerne fremhevingen, og hold inne et tall på brettet for å fremheve alle rutene med det tallet.",
   "Keyboard": "Tastatur",
   "Offline and install": "Installering og bruk uten nett",
   "Everything works offline once the app has loaded. Install it from your browser menu (on iPhone: Share → Add to Home Screen) for a full-screen experience.": "Alt virker uten nett når appen først er lastet inn. Installer den fra nettlesermenyen (på iPhone: Del → Legg til på Hjem-skjerm) for å bruke den i fullskjerm.",
@@ -947,9 +941,6 @@ const ui: Dictionary = {
   "Presets": "Forhåndsinnstillinger",
   "Reset to default colours": "Tilbakestill til standardfarger",
   "Classic": "Klassisk",
-  "Multi-select: tap cells to add or remove them, drag to paint them in or out; the page scrolls from beside the board": "Flervalg: trykk på ruter for å legge til eller fjerne dem, dra for å male dem inn eller ut; siden rulles fra siden av brettet",
-  "Multi (button)": "Fler",
-  "Multi-select: a tap adds or removes a cell, a drag paints": "Flervalg: et trykk legger til eller fjerner en rute, et drag maler",
   "Clean dark slate with balanced high-contrast accents": "Klassisk mørk skifer med balanserte kontraster",
   "Bright paper aesthetic with crisp readable typography": "Lys papir-estetikk med skarp og lesbar typografi",
   "Warm dusty rose tones with soft ambient contrast": "Varme støvrosa toner med myk omgivelseskontrast",
@@ -964,6 +955,7 @@ const ui: Dictionary = {
   "True pure-black AMOLED with sapphire highlights": "Ren AMOLED-sort med safirblå detaljer",
   "Terminal": "Terminal",
   "Phosphor green CRT monochrome with vintage retro glow": "Fosforgrønn monokrom CRT med vintage retro-glød",
+  "Tap to select, and use the on-screen mode and number buttons. To select several cells, drag across them. On a phone a quick swipe up or down over the board scrolls the page instead: rest your finger on the first cell for a moment, then drag in any direction. Hold a number key for a moment to enter it as a corner mark without changing mode. Tap the selected cell again, or anywhere beside the board, to clear the highlight, and long-press a digit on the board to highlight all of its cells.": "Trykk for å velge, og bruk modus- og tallknappene på skjermen. Dra over rutene for å velge flere. På mobil blar et raskt sveip opp eller ned siden isteden: hvil fingeren et øyeblikk på den første ruten, og dra i hvilken som helst retning. Hold en talltast et øyeblikk for å føre den inn som hjørnemarkering uten å bytte modus. Trykk på den valgte ruten igjen, eller hvor som helst utenfor brettet, for å fjerne markeringen, og trykk og hold et tall på brettet for å markere alle rutene med det tallet."
 };
 
 export default ui;

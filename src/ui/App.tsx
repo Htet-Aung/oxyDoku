@@ -333,14 +333,14 @@ export default function App() {
   }, [showThemePicker]);
 
   useEffect(() => {
-    if (!showHeaderMenu) return;
+    if (!showHeaderMenu || isMobile) return;
     const onClick = (e: MouseEvent) => {
       if ((e.target as HTMLElement).closest('.header-menu-container')) return;
       setShowHeaderMenu(false);
     };
     window.addEventListener('click', onClick);
     return () => window.removeEventListener('click', onClick);
-  }, [showHeaderMenu]);
+  }, [showHeaderMenu, isMobile]);
   const [customError, setCustomError] = useState<string | null>(null);
   // the report dialog, with the hint it is about when it came from "Looks wrong?"
   const [report, setReport] = useState<{ kind: ReportKind; hint?: Step } | null>(null);
@@ -898,8 +898,6 @@ export default function App() {
           const g = useGame.getState();
           if (g.chain) g.endChain();
           else {
-            // the way out of multi-select, as of a selection
-            if (g.multiSelect) g.setMultiSelect(false);
             select([], false);
             g.clearArmedDigits();
           }

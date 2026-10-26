@@ -310,7 +310,7 @@ const engine: EngineTable = {
   "Empty Rectangle on {0}: in {1} every {2} lies on one row and one column, and {3} are the only two places for {4} in their line. If {5} is {6}, {7} in its row is not. If not, {8} is {9}, so the box's {10} cannot share its row and must lie on the column through {11}, which again is not {12}. So {13} is removed from {14}.": "Empty Rectangle på {0}: i {1} ligger alle {2}-erne i én rad og én kolonne, og {3} er de eneste to plassene for {4} i linjen sin. Hvis {5} er {6}, er {7} i samme rad ikke det. Hvis ikke, er {8} lik {9}, så boksens {10}-er kan ikke dele rad med den og må ligge i kolonnen gjennom {11}, som da heller ikke er {12}. Altså fjernes {13} fra {14}.",
   "the digits already in its row, column or box; its other candidates were ruled out earlier": "tallene som allerede står i rutens rad, kolonne eller boks; rutens andre kandidater ble utelukket tidligere",
   " ({0} cells are narrowed to their blue and gold candidates this way)": " (slik står {0} ruter igjen med bare sin blå og sin gule kandidat)",
-  "Pattern Overlay: the only complete placement possible for digit {0} uses {1}.": "Pattern Overlay: den eneste fullstendige plasseringen som er mulig for tallet {0}, bruker {1}.",
+  "Pattern Overlay: the only complete placement possible for digit {0} uses {1}.": "Pattern Overlay: den eneste fullstendige plasseringen som er mulig for tallet {0}, bruker {1}.",
   "Spot on! Valid {0}": "Helt riktig! Gyldig {0}",
   "You correctly recognized the {0} on this board. {1}": "Du gjenkjente {0} riktig på dette brettet. {1}",
   "Alternative Pattern Found: {0}": "Alternativt mønster funnet: {0}",
@@ -331,7 +331,6 @@ const engine: EngineTable = {
   "Pattern Cells": "Mønsterruter",
   "Notice the highlighted cells forming the pattern. What candidate eliminations or placements must this force?": "Legg merke til de uthevede rutene som danner mønsteret. Hvilke eliminasjoner eller plasseringer må dette tvinge frem?",
   "Complete Solution": "Fullstendig løsning"
-
 };
 
 export default engine;

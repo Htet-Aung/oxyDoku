@@ -46,7 +46,6 @@ const ui: Dictionary = {
   "Swap corner and centre marks": "Intercambiar marcas de esquina y centro",
   "Number Pad": "Teclado numérico",
   "Entry mode": "Modo de entrada",
-  "Multi-select": "Selección múltiple",
   "Numbers": "Números",
   "Number {d}": "Número {d}",
   "Erase (hold to wipe completely)": "Borrar (mantener para borrar todo)",
@@ -539,10 +538,6 @@ const ui: Dictionary = {
   "Select multiple cells": "Selecciona varias casillas",
   "Touch: drag": "Táctil: arrastra",
   "Select a run of cells (on a phone a vertical swipe scrolls the page: rest a moment first to drag in any direction)": "Selecciona varias casillas seguidas (en un teléfono, un deslizamiento vertical desplaza la página: apoya el dedo un instante antes para arrastrar en cualquier dirección)",
-  "Multi": "Multi",
-  "Multi-select on: tap cells to add or remove them, drag to paint. The same again, or Escape, turns it off": "Multiselección activada: toca casillas para añadirlas o quitarlas, arrastra para pintar. Lo mismo otra vez, o Escape, la desactiva",
-  "Multi-select off": "Multiselección desactivada",
-  "Tip: Multi-select (M) lets you drag without the page scrolling": "Consejo: con Multiselección (M) puedes arrastrar sin que la página se desplace",
   "Touch: hold a number": "Táctil: mantén pulsado un número",
   "Enter it as a corner mark, whatever the mode": "Escríbelo como nota de esquina, sea cual sea el modo",
   "Alt + drag": "Alt + arrastrar",
@@ -585,7 +580,6 @@ const ui: Dictionary = {
   "unassisted solve||in the help": "resolución sin ayuda",
   "Hints name cells by row and column: r2c3 is row 2, column 3, counted from the top left.": "Las pistas nombran las casillas por fila y columna: r2c3 es la fila 2, columna 3, contando desde arriba a la izquierda.",
   "Touch": "Pantalla táctil",
-  "Tap to select, and use the on-screen mode and number buttons. To select several cells, drag across them. On a phone a quick swipe up or down over the board scrolls the page instead: rest your finger on the first cell for a moment, then drag in any direction. Or turn on Multi: then a tap adds a cell or takes it out, a drag paints cells in or out whichever way it goes, and the page scrolls from beside the board. Hold a number key for a moment to enter it as a corner mark without changing mode. Tap the selected cell again, or anywhere beside the board, to clear the highlight, and long-press a digit on the board to highlight all of its cells.": "Toca para seleccionar y usa los botones de modo y de números de la pantalla. Para seleccionar varias casillas, arrastra el dedo sobre ellas. En un teléfono, un deslizamiento rápido hacia arriba o hacia abajo sobre el tablero desplaza la página: apoya el dedo en la primera casilla un momento y luego arrastra en cualquier dirección. O activa Multi: entonces un toque añade una casilla o la quita, un arrastre añade o quita casillas en cualquier dirección, y la página se desplaza desde fuera del tablero. Mantén pulsada una tecla numérica un momento para escribir el número como nota de esquina sin cambiar de modo. Toca otra vez la casilla seleccionada, o cualquier punto junto al tablero, para quitar el resaltado, y mantén pulsado un número del tablero para resaltar todas sus casillas.",
   "Keyboard": "Teclado",
   "Offline and install": "Instalación y uso sin conexión",
   "Everything works offline once the app has loaded. Install it from your browser menu (on iPhone: Share → Add to Home Screen) for a full-screen experience.": "Todo funciona sin conexión una vez cargada la app. Instálala desde el menú del navegador (en iPhone: Compartir → Añadir a pantalla de inicio) para usarla a pantalla completa.",
@@ -945,11 +939,8 @@ const ui: Dictionary = {
   "Colour {n} hex code": "Código hexadecimal del color {n}",
   "Presets": "Ajustes predefinidos",
   "Reset to default colours": "Restablecer a colores predeterminados",
-  "Multi-select: tap cells to add or remove them, drag to paint them in or out; the page scrolls from beside the board": "Selección múltiple: toca celdas para añadirlas o quitarlas, arrastra para pintarlas; la página se desplaza desde el lateral del tablero",
   "Hold Z": "Mantén Z",
   "Colour mode while held (press 1–9 to colour)": "Modo color mientras se mantiene pulsado (presiona 1–9 para colorear)",
-  "Multi (button)": "Multi",
-  "Multi-select: a tap adds or removes a cell, a drag paints": "Selección múltiple: un toque añade o quita una celda, arrastrar pinta",
   "Clean dark slate with balanced high-contrast accents": "Pizarra oscura clásica con contrastes equilibrados",
   "Bright paper aesthetic with crisp readable typography": "Estética de papel claro con tipografía nítida y legible",
   "Warm dusty rose tones with soft ambient contrast": "Tonos rosa empolvado cálidos con contraste suave",
@@ -964,6 +955,7 @@ const ui: Dictionary = {
   "True pure-black AMOLED with sapphire highlights": "Negro puro AMOLED con detalles en zafiro",
   "Terminal": "Terminal",
   "Phosphor green CRT monochrome with vintage retro glow": "Monocromo CRT verde fósforo con resplandor retro clásico",
+  "Tap to select, and use the on-screen mode and number buttons. To select several cells, drag across them. On a phone a quick swipe up or down over the board scrolls the page instead: rest your finger on the first cell for a moment, then drag in any direction. Hold a number key for a moment to enter it as a corner mark without changing mode. Tap the selected cell again, or anywhere beside the board, to clear the highlight, and long-press a digit on the board to highlight all of its cells.": "Toca para seleccionar y usa los botones de modo y número en pantalla. Para seleccionar varias celdas, arrastra sobre ellas. En un móvil, un deslizamiento rápido hacia arriba o hacia abajo desplaza la página: apoya el dedo un momento en la primera celda y arrastra en cualquier dirección. Mantén pulsada una tecla numérica para introducirla como marca de esquina sin cambiar de modo. Toca de nuevo la celda seleccionada, o fuera del tablero, para borrar el resaltado, y mantén pulsado un dígito en el tablero para resaltar todas sus celdas."
 };
 
 export default ui;
