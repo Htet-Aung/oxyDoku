@@ -36,7 +36,7 @@ jobs:
       - name: Sync Capacitor Android
         run: |
           mkdir -p android/app/src/main/assets/public
-          npx cap sync android --verbose
+          npx cap sync android
 
       - name: Build Android Debug APK
         run: |
