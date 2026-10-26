@@ -48,6 +48,8 @@ const ui: Dictionary = {
   "Entry mode": "Inndatamodus",
   "Numbers": "Tall",
   "Number {d}": "Tall {d}",
+  "Shift (multi-select cells, corner marks in digit mode)": "Shift (merk flere ruter, hjørnenotater i siffermodus)",
+  "Shift": "Shift",
   "Erase (hold to wipe completely)": "Slett (hold for å slette alt)",
   "New": "Ny",
   "Practice": "Øv",

@@ -59,7 +59,7 @@ const LETTERS = /[A-Za-z]{2,}/;
 /** prose: two words or more */
 const PROSE = /[A-Za-z]{2,}[^A-Za-z]+[A-Za-z]{2,}/;
 /** strings in the interface that are not words to translate */
-const UI_ALLOW = new Set(['sudokUI', 'HoDoKu', 'GitHub', 'Nutella', 'Ctrl', 'Shift', 'Alt', 'Esc', 'Enter', 'Tab', 'Space', 'Backspace', 'Del', 'OK', 'r1c1', 'UTC', 'PNG', 'SVG', 'Auto']);
+const UI_ALLOW = new Set(['sudokUI', 'oxyDoku', 'oxy', 'DOKU', 'HoDoKu', 'GitHub', 'Nutella', 'Ctrl', 'Shift', 'Alt', 'Esc', 'Enter', 'Tab', 'Space', 'Backspace', 'Del', 'OK', 'r1c1', 'UTC', 'PNG', 'SVG', 'Auto']);
 const MESSAGE_FIELDS = new Set(['notice', 'chainNote', 'message', 'text', 'title', 'label', 'heading', 'description', 'note', 'why', 'hint', 'lead', 'caption', 'name', 'what', 'placeholder', 'tip', 'summary']);
 const READ_ATTRIBUTES = new Set(['title', 'aria-label', 'placeholder', 'alt', 'label', 'aria-description', 'aria-roledescription', 'aria-valuetext']);
 

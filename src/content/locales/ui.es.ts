@@ -48,6 +48,8 @@ const ui: Dictionary = {
   "Entry mode": "Modo de entrada",
   "Numbers": "Números",
   "Number {d}": "Número {d}",
+  "Shift (multi-select cells, corner marks in digit mode)": "Shift (selección múltiple de casillas, notas de esquina en modo cifra)",
+  "Shift": "Shift",
   "Erase (hold to wipe completely)": "Borrar (mantener para borrar todo)",
   "New": "Nuevo",
   "Practice": "Practicar",

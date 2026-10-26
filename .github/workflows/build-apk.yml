@@ -44,8 +44,9 @@ jobs:
           cd dist
           zip -r ../dist.zip .
           cd ..
+          CHECKSUM=$(sha256sum dist.zip | awk '{print $1}')
           COMMIT_SHA=$(git rev-parse --short=7 HEAD)
-          echo "{\"version\":\"1.0.0+$COMMIT_SHA\",\"url\":\"https://github.com/Htet-Aung/oxyDoku/releases/download/v1.0.0-apk/dist.zip\"}" > live-update.json
+          echo "{\"version\":\"1.0.0+$COMMIT_SHA\",\"url\":\"https://github.com/Htet-Aung/oxyDoku/releases/download/v1.0.0-apk/dist.zip\",\"checksum\":\"$CHECKSUM\"}" > live-update.json
 
       - name: Sync Capacitor Android
         run: |

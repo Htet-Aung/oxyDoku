@@ -38,8 +38,8 @@ export async function checkForLiveUpdate(): Promise<void> {
     });
     if (!res.ok) return;
 
-    const manifest = (await res.json()) as { version?: string; url?: string };
-    if (!manifest.version || !manifest.url) return;
+    const manifest = (await res.json()) as { version?: string; url?: string; checksum?: string };
+    if (!manifest.version || !manifest.url || !manifest.checksum) return;
 
     // Check currently active bundle version
     const current = await CapacitorUpdater.current().catch(() => null);
@@ -55,13 +55,16 @@ export async function checkForLiveUpdate(): Promise<void> {
       }
     }
 
+    console.log('[live-update] Downloading bundle:', manifest.version);
     // Download the new bundle zip in the background
     const bundle = await CapacitorUpdater.download({
       url: manifest.url,
-      version: manifest.version
+      version: manifest.version,
+      checksum: manifest.checksum
     });
 
     if (bundle && bundle.id) {
+      console.log('[live-update] Staging update for next launch:', bundle.id);
       // Stage the update to activate automatically on next app restart or background switch
       await CapacitorUpdater.next({ id: bundle.id });
 
