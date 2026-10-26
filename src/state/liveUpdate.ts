@@ -4,7 +4,7 @@
  * Downloads OTA web asset bundles from GitHub Releases in the background
  * without requiring the user to reinstall APK files.
  */
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { CapacitorUpdater } from '@capgo/capacitor-updater';
 import { useAppStatus } from './appStatus';
 
@@ -29,17 +29,21 @@ export async function notifyLiveUpdateReady(): Promise<void> {
  * Check for updates in the background.
  */
 export async function checkForLiveUpdate(): Promise<void> {
-  if (!Capacitor.isNativePlatform() || !navigator.onLine) return;
+  if (!Capacitor.isNativePlatform()) return;
 
   try {
-    const res = await fetch(`${UPDATE_MANIFEST_URL}?t=${Date.now()}`, {
-      headers: { Accept: 'application/json' },
-      cache: 'no-store'
+    // Native HTTP request to bypass any WebView CORS or origin restrictions
+    const res = await CapacitorHttp.get({
+      url: `${UPDATE_MANIFEST_URL}?t=${Date.now()}`
     });
-    if (!res.ok) return;
+    if (res.status !== 200) return;
 
-    const manifest = (await res.json()) as { version?: string; url?: string; checksum?: string };
-    if (!manifest.version || !manifest.url || !manifest.checksum) return;
+    const manifest = (typeof res.data === 'string' ? JSON.parse(res.data) : res.data) as {
+      version?: string;
+      url?: string;
+      checksum?: string;
+    };
+    if (!manifest || !manifest.version || !manifest.url || !manifest.checksum) return;
 
     // Check currently active bundle version
     const current = await CapacitorUpdater.current().catch(() => null);
@@ -99,12 +103,12 @@ export function initLiveUpdates(): void {
   // Check periodically while app remains open
   const CHECK_INTERVAL = 30 * 60 * 1000; // 30 minutes
   setInterval(() => {
-    if (navigator.onLine) checkForLiveUpdate();
+    checkForLiveUpdate();
   }, CHECK_INTERVAL);
 
   // Check when returning to the app
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && navigator.onLine) {
+    if (document.visibilityState === 'visible') {
       checkForLiveUpdate();
     }
   });
