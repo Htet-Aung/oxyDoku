@@ -225,8 +225,7 @@ interface Settings {
   lang: Lang;
   /** board theme: dark, daylight or rosé */
   theme: Theme;
-  /** typeface of the board (digits and pencil marks); all other text
-   *  keeps the face made for reading */
+  /** typeface of the app, including board digits, keypad and UI text */
   font: Font;
   /** tint the row/column/box of a single selected cell */
   highlightPeers: boolean;
@@ -322,7 +321,7 @@ export const useSettings = create<Settings>()(
       showConflicts: true,
       showTimer: true,
       autoOffMaterialize: true,
-      materializeLayer: 'center',
+      materializeLayer: 'corner',
       practiceFastForward: true,
       autoOffPromptDone: false,
       hideRating: false,

@@ -182,7 +182,11 @@ export function MobileFloatingPanel({
             <>
               <span className="mobile-floating-tab-icon" aria-hidden="true"><GraduationCapIcon size={16} /></span>
               <span className="mobile-floating-tab-title">
-                {info?.practiceTech ? t('Practice: {tech}', { tech: t.tech(info.practiceTech) }) : t('Practice')}
+                {practiceMode === 'mixed'
+                  ? t('Mixed Practice')
+                  : info?.practiceTech
+                    ? t('Practice: {tech}', { tech: t.tech(info.practiceTech) })
+                    : t('Practice')}
               </span>
             </>
           )}
@@ -218,7 +222,7 @@ export function MobileFloatingPanel({
           {/* Close button */}
           <button
             type="button"
-            className="mobile-floating-btn close-btn"
+            className="mobile-floating-btn"
             onClick={onClose}
             title={t('Close')}
             aria-label={t('Close')}

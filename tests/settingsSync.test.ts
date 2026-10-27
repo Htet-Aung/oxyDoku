@@ -48,4 +48,15 @@ describe('settings across open windows', () => {
     for (const fn of listeners) fn({ key: 'sudokui-game-v1' });
     expect(useSettings.getState().showTimer).toBe(true);
   });
+
+  it('sets and syncs typeface setting across tabs', async () => {
+    for (const font of ['hand', 'rounded', 'serif', 'mono', 'classic'] as const) {
+      useSettings.getState().set({ font });
+      expect(useSettings.getState().font).toBe(font);
+      expect(JSON.parse(storage.get(KEY)!).state.font).toBe(font);
+    }
+    otherTabWrites({ font: 'hand' });
+    await Promise.resolve();
+    expect(useSettings.getState().font).toBe('hand');
+  });
 });

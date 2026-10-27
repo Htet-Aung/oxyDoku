@@ -463,10 +463,8 @@ body,
   overscroll-behavior-y: contain;
 }
 
-/* typefaces for the board: only ones already on the device, so nothing is
-   downloaded and the choice works offline. Each falls back gracefully.
-   The choice changes the board alone: menus, hints and explanations always
-   keep the face made for reading. */
+/* typefaces: only ones already on the device, so nothing is
+   downloaded and the choice works offline. Each falls back gracefully. */
 :root {
   --font-classic: 'Avenir Next', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-rounded: ui-rounded, 'SF Pro Rounded', 'Arial Rounded MT Bold', 'Nunito',
@@ -523,17 +521,27 @@ body,
   --font: var(--font-mono);
 }
 
+:root[data-font='classic'] {
+  --font: var(--font-classic);
+}
+
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-classic);
+  font-family: var(--font);
   -webkit-user-select: none;
   user-select: none;
 }
 
-/* buttons do not inherit the page font by default */
-button {
+/* buttons and form controls inherit the typeface */
+button,
+input,
+select,
+textarea {
   font-family: inherit;
+}
+
+button {
   font-size: 13px;
   line-height: 1.35;
   touch-action: manipulation; /* no double-tap zoom on rapid taps */
@@ -776,6 +784,60 @@ button.ghost.mini.accent:hover:not(:disabled) {
 .status-dot {
   font-size: 9px;
   color: #52ab58;
+}
+
+.practice-header-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  border-color: rgba(91, 143, 224, 0.35);
+  background: var(--panel);
+  transition: all 0.15s ease;
+  min-width: 0;
+}
+
+.practice-header-badge:hover {
+  border-color: var(--accent);
+}
+
+.practice-header-dot {
+  font-size: 8px;
+  color: var(--accent, #5b8fe0);
+  flex-shrink: 0;
+}
+
+.practice-header-tag {
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent-text, #5b8fe0);
+  background: var(--sel-bg, rgba(91, 143, 224, 0.15));
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.mobile-badge .practice-header-tag {
+  font-size: 10px;
+  padding: 1px 5px;
+}
+
+.practice-header-sep {
+  color: var(--muted, rgba(128, 128, 160, 0.6));
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.practice-header-type {
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .header-import-btn {
@@ -3365,9 +3427,6 @@ kbd {
     font-size: 19px;
   }
 
-  .practice-badge {
-    display: none; /* not enough room; the practice dialog still shows it */
-  }
 }
 
 /* a short desktop window (a laptop at 1280 x 800): the control column is
@@ -5388,7 +5447,7 @@ html:not([lang='en']) .zone-note {
   gap: 4px;
 }
 
-.practice-badge {
+.practice-panel-title .practice-badge {
   display: inline-block;
   align-self: flex-start;
   font-size: 11px;
@@ -6177,6 +6236,7 @@ html:not([lang='en']) .zone-note {
   padding: 8px;
   border-radius: 6px;
   border: 1px solid var(--border, rgba(128, 128, 160, 0.2));
+  min-width: 0;
 }
 
 .palette-row-label {
@@ -6195,6 +6255,7 @@ html:not([lang='en']) .zone-note {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 }
 
 .palette-color-picker {
@@ -6205,11 +6266,14 @@ html:not([lang='en']) .zone-note {
   cursor: pointer;
   background: transparent;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .palette-color-hex {
   flex: 1;
+  width: 100%;
   min-width: 0;
+  box-sizing: border-box;
   font-family: monospace;
   font-size: 12px;
   padding: 3px 6px;
@@ -6581,8 +6645,11 @@ html, body {
 .mobile-header-center {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   overflow: hidden;
+  flex: 1;
+  min-width: 0;
 }
 
 .mobile-badge {
@@ -7012,6 +7079,10 @@ html, body {
   justify-content: center;
   width: 28px;
   height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  margin: 0;
   border-radius: 6px;
   border: none;
   background: rgba(255, 255, 255, 0.08);
@@ -7309,16 +7380,23 @@ html, body {
 }
 
 /* Settings Palette Grid */
+.setting-row.palette-setting-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
 .settings-palette-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-top: 6px;
+  width: 100%;
 }
 
 @media (max-width: 500px) {
   .settings-palette-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

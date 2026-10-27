@@ -1245,7 +1245,11 @@ export const useGame = create<GameStore>()(
         const s = get();
         const g = engineGrid(s.cells);
         const cells = cloneCells(s.cells);
-        const layer = (s.tempMode ?? s.mode) === 'center' ? 'center' : 'corner';
+        const activeMode = s.tempMode ?? s.mode;
+        const layer =
+          activeMode === 'center' || activeMode === 'corner'
+            ? activeMode
+            : useSettings.getState().materializeLayer;
         const scope = s.selection.filter((i) => !cells[i].given && !cells[i].value);
         const partial = scope.length >= 1;
         const targets = partial

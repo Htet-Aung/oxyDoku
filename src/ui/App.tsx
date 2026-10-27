@@ -313,6 +313,14 @@ export default function App() {
   const [floatingTab, setFloatingTab] = useState<FloatingPanelTab | null>(null);
 
   const [practiceMode, setPracticeMode] = [usePractice((s) => s.mode), usePractice.setState];
+  const isPractice = !!info?.practiceTech;
+  const practiceExerciseState = usePractice((s) => s.exerciseState);
+  const isMixedPracticeUnknown = practiceMode === 'mixed' && !practiceFound && practiceExerciseState !== 'revealed';
+  const practiceTechName = isMixedPracticeUnknown
+    ? t('Mixed')
+    : info?.practiceTech
+      ? t.tech(info.practiceTech)
+      : '';
   useEffect(() => {
     if (isMobile) {
       if (scannerOpen) {
@@ -322,6 +330,12 @@ export default function App() {
       }
     }
   }, [scannerOpen, isMobile, info?.practiceTech, practiceMode]);
+
+  useEffect(() => {
+    if (floatingTab === 'hint' && (!hint || hintStage === 'hidden')) {
+      setFloatingTab(null);
+    }
+  }, [floatingTab, hint, hintStage]);
 
   useEffect(() => {
     if (!showThemePicker) return;
@@ -954,28 +968,51 @@ export default function App() {
             </div>
 
             <div className="mobile-header-center">
-              <button
-                type="button"
-                className="board-status-badge mobile-badge"
-                onClick={() => openLearn({ tab: 'rating' })}
-                title={t('How the HoDoKu rating works, in full')}
-              >
-                <span className="status-dot" aria-hidden="true">●</span>
-                <span className="status-text">
-                  {custom
-                    ? t('Custom')
-                    : info
-                      ? `${t.level(pickOf(info.level, info.score))} · ${info.score}`
-                      : ''}
-                </span>
-                {info?.practiceTech && (
-                  <span className="practice-badge"> · {t('Practice: {tech}', { tech: t.tech(info.practiceTech) })}</span>
-                )}
-              </button>
+              {isPractice ? (
+                <button
+                  type="button"
+                  className="board-status-badge mobile-badge practice-header-badge"
+                  onClick={() =>
+                    openLearn(
+                      isMixedPracticeUnknown
+                        ? { tab: 'techniques' }
+                        : { tab: 'techniques', tech: info?.practiceTech ?? undefined }
+                    )
+                  }
+                  title={
+                    isMixedPracticeUnknown
+                      ? t('Mixed Practice')
+                      : info?.practiceTech
+                        ? t('Learn about {name}', { name: t.tech(info.practiceTech) })
+                        : t('Practice||the Learn tab')
+                  }
+                >
+                  <span className="status-dot practice-header-dot" aria-hidden="true">●</span>
+                  <span className="practice-header-tag">{t('Practice||the Learn tab')}</span>
+                  <span className="practice-header-sep" aria-hidden="true">·</span>
+                  <span className="practice-header-type practice-badge">{practiceTechName}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="board-status-badge mobile-badge"
+                  onClick={() => openLearn({ tab: 'rating' })}
+                  title={t('How the HoDoKu rating works, in full')}
+                >
+                  <span className="status-dot" aria-hidden="true">●</span>
+                  <span className="status-text">
+                    {custom
+                      ? t('Custom')
+                      : info
+                        ? `${t.level(pickOf(info.level, info.score))} · ${info.score}`
+                        : ''}
+                  </span>
+                </button>
+              )}
             </div>
 
             <div className="mobile-topbar-right">
-              {showTimer && (
+              {showTimer && !isPractice && (
                 <button
                   type="button"
                   className="mobile-timer-badge"
@@ -1087,6 +1124,9 @@ export default function App() {
             <MobileFloatingPanel
               activeTab={floatingTab}
               onClose={() => {
+                if (floatingTab === 'hint') {
+                  useGame.getState().dismissHint();
+                }
                 setFloatingTab(null);
                 if (scannerOpen) closeScanner();
               }}
@@ -1101,7 +1141,7 @@ export default function App() {
 
           <MobileBottomDock
             scannerOpen={scannerOpen || floatingTab === 'patterns'}
-            hintActive={!!(hint && hintStage !== 'hidden') || floatingTab === 'hint'}
+            hintActive={floatingTab === 'hint'}
             toolsOpen={floatingTab === 'tools'}
             onToggleScanner={() => {
               if (floatingTab === 'patterns') {
@@ -1113,11 +1153,18 @@ export default function App() {
               }
             }}
             onHint={() => {
-              setFloatingTab('hint');
-              const g = useGame.getState();
-              if (g.hintStage === 'tech') g.revealHint();
-              else if (g.hintStage === 'full' || g.hintStage === 'walk') g.applyHint();
-              else requestHint();
+              if (floatingTab === 'hint') {
+                const g = useGame.getState();
+                if (g.hintStage === 'tech') g.revealHint();
+                else if (g.hintStage === 'full' || g.hintStage === 'walk') g.applyHint();
+                else requestHint();
+              } else {
+                setFloatingTab('hint');
+                const g = useGame.getState();
+                if (!g.hint || g.hintStage === 'hidden') {
+                  requestHint();
+                }
+              }
             }}
             onToggleTools={() => setFloatingTab(floatingTab === 'tools' ? null : 'tools')}
             onOpenMenu={() => setShowHeaderMenu(true)}
@@ -1136,24 +1183,47 @@ export default function App() {
         </div>
 
         <div className="header-center">
-          <button
-            type="button"
-            className="board-status-badge"
-            onClick={() => openLearn({ tab: 'rating' })}
-            title={t('How the HoDoKu rating works, in full')}
-          >
-            <span className="status-dot" aria-hidden="true">●</span>
-            <span className="status-text">
-              {custom
-                ? t('Custom')
-                : info
-                  ? `${t.level(pickOf(info.level, info.score))} · ${info.score}`
-                  : ''}
-            </span>
-            {info?.practiceTech && (
-              <span className="practice-badge"> · {t('Practice: {tech}', { tech: t.tech(info.practiceTech) })}</span>
-            )}
-          </button>
+          {isPractice ? (
+            <button
+              type="button"
+              className="board-status-badge practice-header-badge"
+              onClick={() =>
+                openLearn(
+                  isMixedPracticeUnknown
+                    ? { tab: 'techniques' }
+                    : { tab: 'techniques', tech: info?.practiceTech ?? undefined }
+                )
+              }
+              title={
+                isMixedPracticeUnknown
+                  ? t('Mixed Practice')
+                  : info?.practiceTech
+                    ? t('Learn about {name}', { name: t.tech(info.practiceTech) })
+                    : t('Practice||the Learn tab')
+              }
+            >
+              <span className="status-dot practice-header-dot" aria-hidden="true">●</span>
+              <span className="practice-header-tag">{t('Practice||the Learn tab')}</span>
+              <span className="practice-header-sep" aria-hidden="true">·</span>
+              <span className="practice-header-type practice-badge">{practiceTechName}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="board-status-badge"
+              onClick={() => openLearn({ tab: 'rating' })}
+              title={t('How the HoDoKu rating works, in full')}
+            >
+              <span className="status-dot" aria-hidden="true">●</span>
+              <span className="status-text">
+                {custom
+                  ? t('Custom')
+                  : info
+                    ? `${t.level(pickOf(info.level, info.score))} · ${info.score}`
+                    : ''}
+              </span>
+            </button>
+          )}
           <LiveSyncIndicator />
           <button
             className="header-import-btn"

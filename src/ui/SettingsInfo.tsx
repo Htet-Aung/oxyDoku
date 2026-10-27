@@ -208,10 +208,10 @@ export function SettingsDialog({
           onSelect={(theme) => s.set({ theme })}
         />
       </div>
-      <div className="setting-row stack" role="group" aria-label={t('Board typeface')}>
+      <div className="setting-row stack" role="group" aria-label={t('Typeface')}>
         <div className="setting-text">
-          <span>{t('Board typeface')}</span>
-          <small>{t('For the digits and pencil marks on the board')}</small>
+          <span>{t('Typeface')}</span>
+          <small>{t('For the whole app, board digits included')}</small>
         </div>
         <div className="segmented">
           {(
@@ -411,7 +411,7 @@ export function SettingsDialog({
         </div>
       </div>
 
-      <div className="setting-row stack" role="group" aria-label={t('Number & Palette Colours')}>
+      <div className="setting-row stack palette-setting-row" role="group" aria-label={t('Number & Palette Colours')}>
         <div className="setting-text">
           <span>{t('Number & Palette Colours')}</span>
           <small>{t('Customise the colour of each digit (1 to 9) on the numpad and board')}</small>
@@ -436,6 +436,9 @@ export function SettingsDialog({
                     type="text"
                     className="palette-color-hex"
                     value={colorHex}
+                    size={7}
+                    maxLength={7}
+                    spellCheck={false}
                     onChange={(e) => {
                       const val = e.target.value;
                       if (/^#[0-9a-fA-F]{6}$/.test(val)) {
@@ -531,26 +534,26 @@ export function SettingsDialog({
 
       <h4 className="setting-group">{t('Candidates')}</h4>
       <Toggle
-        label={t('Keep candidates when Auto is switched off')}
-        hint={t('The candidates Auto was showing stay on the board as your own pencil marks')}
+        label={t('Keep candidates when turning off Auto')}
+        hint={t('Keep calculated candidates as your own pencil marks when Auto candidates is turned off')}
         value={s.autoOffMaterialize}
         onChange={(v) => s.set({ autoOffMaterialize: v })}
       />
       <div
         className={`setting-row stack ${s.autoOffMaterialize ? '' : 'disabled'}`}
         role="group"
-        aria-label={t('Write candidates as')}
+        aria-label={t('Candidate pencil mark style')}
       >
         <div className="setting-text">
-          <span>{t('Write them as')}</span>
+          <span>{t('Candidate style')}</span>
           <small>
             {t(
-              'Centre: a compact list in the middle of the cell. Corner: each digit in its own fixed spot, which is where hints highlight it'
+              'Corner: digits in fixed 3x3 positions around the cell. Centre: a compact note in the middle of the cell'
             )}
           </small>
         </div>
         <div className="segmented">
-          {(['center', 'corner'] as MarkLayer[]).map((layer) => (
+          {(['corner', 'center'] as MarkLayer[]).map((layer) => (
             <button
               key={layer}
               disabled={!s.autoOffMaterialize}

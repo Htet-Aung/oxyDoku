@@ -197,6 +197,9 @@ export function ColorPaletteBar({ zHeld = false }: { zHeld?: boolean }) {
                       type="text"
                       className="palette-color-hex"
                       value={colorHex}
+                      size={7}
+                      maxLength={7}
+                      spellCheck={false}
                       onChange={(e) => {
                         const val = e.target.value;
                         if (/^#[0-9a-fA-F]{6}$/.test(val)) {

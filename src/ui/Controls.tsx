@@ -313,13 +313,13 @@ export function Controls({
             )}
           </p>
           <div className="level-list">
-            <button className="level-btn" onClick={() => chooseAutoOff('center')}>
-              <strong>{t('Centre marks')}</strong>
-              <span>{t('A compact list in the middle of the cell (recommended)')}</span>
-            </button>
             <button className="level-btn" onClick={() => chooseAutoOff('corner')}>
               <strong>{t('Corner marks')}</strong>
-              <span>{t('Each digit in its own fixed spot, where hints highlight it')}</span>
+              <span>{t('Each digit in its own fixed spot, where hints highlight it (recommended)')}</span>
+            </button>
+            <button className="level-btn" onClick={() => chooseAutoOff('center')}>
+              <strong>{t('Centre marks')}</strong>
+              <span>{t('A compact list in the middle of the cell')}</span>
             </button>
             <button className="level-btn" onClick={() => chooseAutoOff('none')}>
               <strong>{t("Don't fill anything")}</strong>
