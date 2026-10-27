@@ -229,7 +229,7 @@ export function HintPanel({ onLearn, onReport }: { onLearn: (tech: Tech) => void
         <div className="hint-body">
           {frame ? (
             <div className="hint-walk" aria-live="polite">
-              <p className="hint-walk-text"><FormattedExplanation text={frame.text} /></p>
+              <p className="hint-walk-text"><FormattedExplanation text={frame.text} step={hint} /></p>
               <div className="hint-walk-nav">
                 <button
                   className="ghost"

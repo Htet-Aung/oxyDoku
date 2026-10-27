@@ -259,6 +259,7 @@ export function MobileFloatingPanel({
                       ? selectedInstance.step.description
                       : hint?.description ?? ''
                 }
+                step={currentStep}
               />
             </p>
           </div>

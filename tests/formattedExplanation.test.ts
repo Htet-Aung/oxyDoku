@@ -43,9 +43,10 @@ describe('formatExplanationText', () => {
 
     nodes.forEach(traverse);
 
-    // Check that rows 4 and 7 were identified as row numbers
+    // Check that rows 4 and 7 were identified as row numbers, and 2 is NOT in row numbers
     expect(rowDigits).toContain('4');
     expect(rowDigits).toContain('7');
+    expect(rowDigits).not.toContain('2');
 
     // Check that columns 4 and 7 were identified as col numbers
     expect(colDigits).toContain('4');
@@ -55,7 +56,35 @@ describe('formatExplanationText', () => {
     expect(digitValues).toContain('2');
   });
 
-  it('correctly parses Screenshot 2 sentence "Base rows: the 2s of the fish."', () => {
+  it('correctly parses Screenshot 2 sentence "So 2 is removed from r8c4."', () => {
+    const text = 'So 2 is removed from r8c4.';
+    const nodes = formatExplanationText(text);
+
+    const digitValues: string[] = [];
+    const rowDigits: string[] = [];
+    const colDigits: string[] = [];
+
+    function traverse(node: React.ReactNode) {
+      if (!React.isValidElement(node)) return;
+      const cls = (node.props as any).className || '';
+      if (cls.includes('hl-row')) rowDigits.push(String((node.props as any).children));
+      if (cls.includes('hl-col')) colDigits.push(String((node.props as any).children));
+      if (cls.includes('hl-digit')) digitValues.push(String((node.props as any).children));
+      if ((node.props as any).children) {
+        React.Children.forEach((node.props as any).children, traverse);
+      }
+    }
+
+    nodes.forEach(traverse);
+
+    // 2 is recognized as the eliminated candidate digit
+    expect(digitValues).toContain('2');
+    // r8c4 coordinate is recognized
+    expect(rowDigits).toContain('8');
+    expect(colDigits).toContain('4');
+  });
+
+  it('correctly parses Screenshot 2 sentence "Base rows: the 2s of the fish." and other walk frames', () => {
     const text = 'Base rows: the 2s of the fish.';
     const nodes = formatExplanationText(text);
 
@@ -73,6 +102,22 @@ describe('formatExplanationText', () => {
 
     nodes.forEach(traverse);
     expect(foundDigit).toBe(true);
+
+    const frame3 = "Cover columns: where the base's 2s must land.";
+    const nodes3 = formatExplanationText(frame3);
+    let foundDigit3 = false;
+    function traverse3(node: React.ReactNode) {
+      if (!React.isValidElement(node)) return;
+      const cls = (node.props as any).className || '';
+      if (cls.includes('hl-digit') && (node.props as any).children === '2') {
+        foundDigit3 = true;
+      }
+      if ((node.props as any).children) {
+        React.Children.forEach((node.props as any).children, traverse3);
+      }
+    }
+    nodes3.forEach(traverse3);
+    expect(foundDigit3).toBe(true);
   });
 
   it('correctly parses Spanish and Norwegian translations of fish patterns', () => {

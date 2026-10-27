@@ -1,8 +1,31 @@
 import React from 'react';
+import type { Step } from '../engine/steps';
 
 export interface FormattedExplanationProps {
   text: string;
+  step?: Step | null;
   className?: string;
+}
+
+/**
+ * Extracts all unique digits involved in a Step (placements, eliminations,
+ * primary/secondary/fin candidate marks, chain links).
+ */
+export function getStepDigits(step?: Step | null): Set<number> {
+  const set = new Set<number>();
+  if (!step) return set;
+  for (const p of step.placements || []) set.add(p.digit);
+  for (const e of step.eliminations || []) set.add(e.digit);
+  for (const p of step.primary || []) set.add(p.digit);
+  for (const s of step.secondary || []) set.add(s.digit);
+  for (const f of step.fins || []) set.add(f.digit);
+  if (step.links) {
+    for (const l of step.links) {
+      for (const cd of l.from || []) set.add(cd.digit);
+      for (const cd of l.to || []) set.add(cd.digit);
+    }
+  }
+  return set;
 }
 
 /**
@@ -27,6 +50,67 @@ function renderNumberList(
   });
 }
 
+interface TokenPattern {
+  name:
+    | 'coord'
+    | 'cand_cluster'
+    | 'chain_link'
+    | 'row_phrase'
+    | 'col_phrase'
+    | 'box_phrase'
+    | 'neutral'
+    | 'coord_part'
+    | 'digit';
+  regex: RegExp;
+}
+
+const TOKEN_PATTERNS: TokenPattern[] = [
+  // 1. Cell coordinates: r4c7, r6c2, r7c6
+  { name: 'coord', regex: /\br([1-9])c([1-9])\b/i },
+
+  // 2. Candidate clusters inside parentheses: (12345), (79)
+  { name: 'cand_cluster', regex: /\(([1-9]{2,9})\)/ },
+
+  // 3. Chain link notations: –2– or -2-
+  { name: 'chain_link', regex: /[–-]([1-9])[–-]/ },
+
+  // 4. Row phrases: "in rows 4, 7", "rows 4, 7", "filas 4, 7", "radene 4, 7"
+  // Negative lookahead prevents eating the following candidate digit when phrased "in rows 4, 7, 2 sits in..."
+  {
+    name: 'row_phrase',
+    regex:
+      /\b(?:in\s+|en\s+las?\s+|i\s+)?(?:rows?|filas?|rad(?:ene)?)\s+[1-9](?:(?:\s*,\s*|\s+(?:and|y|og|or|o|eller|\/)\s*)[1-9](?!\s+(?:sits|stands|is|can|must|falls|leaves|eliminates|está|står)\b))*/i
+  },
+
+  // 5. Column phrases: "in columns 4, 7", "column 4", "columnas 4, 7", "kolonnene 4, 7"
+  {
+    name: 'col_phrase',
+    regex:
+      /\b(?:in\s+|en\s+las?\s+|i\s+)?(?:columns?|columnas?|kolonne(?:ne)?)\s+[1-9](?:(?:\s*,\s*|\s+(?:and|y|og|or|o|eller|\/)\s*)[1-9])*/i
+  },
+
+  // 6. Box phrases: "in boxes 1, 2", "box 3", "cajas 1, 2", "boks 3"
+  {
+    name: 'box_phrase',
+    regex:
+      /\b(?:in\s+|en\s+las?\s+|i\s+)?(?:boxes|box|cajas?|boks(?:ene)?)\s+[1-9](?:(?:\s*,\s*|\s+(?:and|y|og|or|o|eller|\/)\s*)[1-9])*/i
+  },
+
+  // 7. Neutral non-digit numbers: "Type 2", "Branch 1", "2 cells", "1 of 4", "2-String"
+  {
+    name: 'neutral',
+    regex:
+      /\b(?:type|tipo|branch|rama|gren)\s+[1-9](?![0-9:])|\b[1-9]\s+(?:cells?|celdas?|ruter?)\b|\b\d+\s+of\s+\d+\b|\b\d+-(?:string|level|step|way|link)\b/i
+  },
+
+  // 8. Standalone coordinate components: r4, c7, b3
+  { name: 'coord_part', regex: /\b([rcb])([1-9])(?![0-9:|A-Za-z])/i },
+
+  // 9. Sudoku candidate / digit numbers: e.g. "on 2:", "2 sits in", "So 2 is removed", "the 2s of"
+  // Negative lookahead (?![0-9]|:[0-9]) avoids times like 2:29 and large numbers like 2302
+  { name: 'digit', regex: /\b([1-9])(s?)(?![0-9]|:[0-9])\b/i }
+];
+
 /**
  * Parses sudoku explanation text and returns React nodes where:
  * - Cell coordinates (r4c7) have row digit styled with --hl-coord-r and col digit with --hl-coord-c.
@@ -38,211 +122,160 @@ function renderNumberList(
  * All styles use CSS variables mapped per active theme (Dark, Light, Rose, Forest, Cyberpunk,
  * Chess, Aquarium, Midnight, Terminal).
  */
-export function formatExplanationText(text: string): React.ReactNode[] {
+export function formatExplanationText(text: string, _step?: Step | null): React.ReactNode[] {
   if (!text) return [];
 
-  // Master RegExp capturing structured Sudoku tokens:
-  // 1. Cell coordinate: r[1-9]c[1-9]
-  // 2. Candidate cluster: (12345)
-  // 3. Chain link: –[1-9]–
-  // 4. Rows phrase: (rows|filas|radene) 4, 7
-  // 5. Columns phrase: (columns|columnas|kolonnene) 4, 7
-  // 6. Boxes phrase: (boxes|box|cajas|boksene) 1, 2
-  // 7. Tech on digit: on 2: / på 2: / en el 2:
-  // 8. Digit sits: 2 sits in / står tallet 2 i / el 2 está en
-  // 9. The digit of/that: the 2s of / a 2 that sees / the 2 that
-  // 10. Explicit digit/candidate: digits 4, 7 / candidates 2, 5 / cifra 2 / tallet 2
-  // 11. Action digit: places 2 / eliminates 2 / removes candidate 2
-  // 12. Verb digit: is 2 / be 2 / assume ... is 2
-  // 13. Standalone coordinate part: r4 or c7 or b3
-  const tokenRegex =
-    /(\br([1-9])c([1-9])\b)|(\(([1-9]{2,9})\))|([–-]([1-9])[–-])|(\b(?:in\s+|en\s+las?\s+|i\s+)?(rows?|filas?|rad(?:ene)?)\s+([1-9](?:(?:\s*,\s*|\s+(?:and|y|og|or|o|eller|\/)\s*)[1-9])*))|(\b(?:in\s+|en\s+las?\s+|i\s+)?(columns?|columnas?|kolonne(?:ne)?)\s+([1-9](?:(?:\s*,\s*|\s+(?:and|y|og|or|o|eller|\/)\s*)[1-9])*))|(\b(?:in\s+|en\s+las?\s+|i\s+)?(boxes|box|cajas?|boks(?:ene)?)\s+([1-9](?:(?:\s*,\s*|\s+(?:and|y|og|or|o|eller|\/)\s*)[1-9])*))|(\b(on|på|en\s+el)\s+([1-9])\s*([:;,]))|(\b([1-9])\s+(sits\s+in|stands\s+in|står\s+i|está\s+en)\b)|(\b(the|a|an|en|el|un|una)\s+([1-9])(s?)\s+(of|that|que|som|sees|ve|ser)\b)|(\b(digits?|cifras?|tallet|tall|candidates?|candidatos?|kandidater?)\s+([1-9](?:(?:\s*,\s*|\s+(?:and|y|og|or|o|eller|\/)\s*)[1-9])*))|(\b(places?|placing|setting|eliminates?|eliminating|removes?|removed|forces?|locks?|coloca|elimina|fjerner|plasserer)\s+((?:the\s+)?(?:candidate\s+|digit\s+)?)([1-9])(?![0-9:])\b)|(\b(is|be|takes?|sea|er)\s+([1-9])(?![0-9:])\b)|(\b([rcb])([1-9])(?![0-9:])\b)/gi;
-
   const nodes: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
+  let pos = 0;
 
-  while ((match = tokenRegex.exec(text)) !== null) {
-    const matchIndex = match.index;
+  while (pos < text.length) {
+    let earliestMatch: RegExpExecArray | null = null;
+    let earliestPattern: TokenPattern | null = null;
 
-    // Push leading plain text
-    if (matchIndex > lastIndex) {
-      nodes.push(text.slice(lastIndex, matchIndex));
+    for (const pat of TOKEN_PATTERNS) {
+      pat.regex.lastIndex = 0;
+      const m = pat.regex.exec(text.slice(pos));
+      if (m) {
+        const matchStart = pos + m.index;
+        if (!earliestMatch || matchStart < (earliestMatch as any).index) {
+          earliestMatch = Object.assign(m, { index: matchStart });
+          earliestPattern = pat;
+        }
+      }
     }
 
-    const key = `token-${matchIndex}`;
-
-    // 1. Cell coordinate: r[1-9]c[1-9]
-    if (match[1]) {
-      const rowDigit = match[2];
-      const colDigit = match[3];
-      nodes.push(
-        <span key={key} className="coord-cell">
-          <span className="coord-prefix">r</span>
-          <span className="hl-num hl-row">{rowDigit}</span>
-          <span className="coord-prefix">c</span>
-          <span className="hl-num hl-col">{colDigit}</span>
-        </span>
-      );
+    if (!earliestMatch || !earliestPattern) {
+      nodes.push(text.slice(pos));
+      break;
     }
-    // 2. Candidate cluster: (12345)
-    else if (match[4]) {
-      const candDigits = match[5];
-      nodes.push(
-        <React.Fragment key={key}>
-          (
-          <span className="hl-digit-set">
-            {candDigits.split('').map((d, i) => (
-              <span key={`${key}-cd-${i}`} className="hl-num hl-digit">
-                {d}
-              </span>
-            ))}
+
+    if (earliestMatch.index > pos) {
+      nodes.push(text.slice(pos, earliestMatch.index));
+    }
+
+    const key = `token-${earliestMatch.index}`;
+    const matchedText = earliestMatch[0];
+
+    switch (earliestPattern.name) {
+      case 'coord': {
+        const coordM = /\br([1-9])c([1-9])\b/i.exec(matchedText);
+        if (coordM) {
+          nodes.push(
+            <span key={key} className="coord-cell">
+              <span className="coord-prefix">r</span>
+              <span className="hl-num hl-row">{coordM[1]}</span>
+              <span className="coord-prefix">c</span>
+              <span className="hl-num hl-col">{coordM[2]}</span>
+            </span>
+          );
+        } else {
+          nodes.push(matchedText);
+        }
+        break;
+      }
+
+      case 'cand_cluster': {
+        const clusterDigits = matchedText.slice(1, -1);
+        nodes.push(
+          <React.Fragment key={key}>
+            (
+            <span className="hl-digit-set">
+              {clusterDigits.split('').map((d, i) => (
+                <span key={`${key}-cd-${i}`} className="hl-num hl-digit">
+                  {d}
+                </span>
+              ))}
+            </span>
+            )
+          </React.Fragment>
+        );
+        break;
+      }
+
+      case 'chain_link': {
+        const d = matchedText.charAt(1);
+        nodes.push(
+          <React.Fragment key={key}>
+            –<span className="hl-num hl-digit">{d}</span>–
+          </React.Fragment>
+        );
+        break;
+      }
+
+      case 'row_phrase': {
+        const numPart = matchedText.replace(/^[^\d]+/, '');
+        const prefix = matchedText.slice(0, matchedText.indexOf(numPart));
+        nodes.push(
+          <React.Fragment key={key}>
+            {prefix}
+            {renderNumberList(numPart, 'row', key)}
+          </React.Fragment>
+        );
+        break;
+      }
+
+      case 'col_phrase': {
+        const numPart = matchedText.replace(/^[^\d]+/, '');
+        const prefix = matchedText.slice(0, matchedText.indexOf(numPart));
+        nodes.push(
+          <React.Fragment key={key}>
+            {prefix}
+            {renderNumberList(numPart, 'col', key)}
+          </React.Fragment>
+        );
+        break;
+      }
+
+      case 'box_phrase': {
+        const numPart = matchedText.replace(/^[^\d]+/, '');
+        const prefix = matchedText.slice(0, matchedText.indexOf(numPart));
+        nodes.push(
+          <React.Fragment key={key}>
+            {prefix}
+            {renderNumberList(numPart, 'box', key)}
+          </React.Fragment>
+        );
+        break;
+      }
+
+      case 'neutral': {
+        nodes.push(matchedText);
+        break;
+      }
+
+      case 'coord_part': {
+        const letter = matchedText.charAt(0).toLowerCase();
+        const num = matchedText.charAt(1);
+        const type = letter === 'r' ? 'row' : letter === 'c' ? 'col' : 'box';
+        nodes.push(
+          <span key={key} className="coord-cell">
+            <span className="coord-prefix">{letter}</span>
+            <span className={`hl-num hl-${type}`}>{num}</span>
           </span>
-          )
-        </React.Fragment>
-      );
-    }
-    // 3. Chain link: –[1-9]–
-    else if (match[6]) {
-      const linkDigit = match[7];
-      nodes.push(
-        <React.Fragment key={key}>
-          –<span className="hl-num hl-digit">{linkDigit}</span>–
-        </React.Fragment>
-      );
-    }
-    // 4. Rows phrase: rows 4, 7
-    else if (match[8]) {
-      const fullPhrase = match[8];
-      const rowNumbers = match[10];
-      const prefix = fullPhrase.slice(0, fullPhrase.lastIndexOf(rowNumbers));
-      nodes.push(
-        <React.Fragment key={key}>
-          {prefix}
-          {renderNumberList(rowNumbers, 'row', key)}
-        </React.Fragment>
-      );
-    }
-    // 5. Columns phrase: columns 4, 7
-    else if (match[11]) {
-      const fullPhrase = match[11];
-      const colNumbers = match[13];
-      const prefix = fullPhrase.slice(0, fullPhrase.lastIndexOf(colNumbers));
-      nodes.push(
-        <React.Fragment key={key}>
-          {prefix}
-          {renderNumberList(colNumbers, 'col', key)}
-        </React.Fragment>
-      );
-    }
-    // 6. Boxes phrase: boxes 1, 2
-    else if (match[14]) {
-      const fullPhrase = match[14];
-      const boxNumbers = match[16];
-      const prefix = fullPhrase.slice(0, fullPhrase.lastIndexOf(boxNumbers));
-      nodes.push(
-        <React.Fragment key={key}>
-          {prefix}
-          {renderNumberList(boxNumbers, 'box', key)}
-        </React.Fragment>
-      );
-    }
-    // 7. Tech on digit: on 2:
-    else if (match[17]) {
-      const prefixWord = match[18];
-      const digit = match[19];
-      const punct = match[20];
-      nodes.push(
-        <React.Fragment key={key}>
-          {prefixWord}{' '}
-          <span className="hl-num hl-digit">{digit}</span>
-          {punct}
-        </React.Fragment>
-      );
-    }
-    // 8. Digit sits: 2 sits in
-    else if (match[21]) {
-      const digit = match[22];
-      const verb = match[23];
-      nodes.push(
-        <React.Fragment key={key}>
-          <span className="hl-num hl-digit">{digit}</span> {verb}
-        </React.Fragment>
-      );
-    }
-    // 9. The digit of/that: the 2s of
-    else if (match[24]) {
-      const article = match[25];
-      const digit = match[26];
-      const plural = match[27] || '';
-      const trail = match[28];
-      nodes.push(
-        <React.Fragment key={key}>
-          {article}{' '}
-          <span className="hl-num hl-digit">{digit}</span>
-          {plural} {trail}
-        </React.Fragment>
-      );
-    }
-    // 10. Explicit digit/candidate: digits 4, 7
-    else if (match[29]) {
-      const fullPhrase = match[29];
-      const numbers = match[31];
-      const prefix = fullPhrase.slice(0, fullPhrase.lastIndexOf(numbers));
-      nodes.push(
-        <React.Fragment key={key}>
-          {prefix}
-          {renderNumberList(numbers, 'digit', key)}
-        </React.Fragment>
-      );
-    }
-    // 11. Action digit: places 2
-    else if (match[32]) {
-      const action = match[33];
-      const extra = match[34] || '';
-      const digit = match[35];
-      nodes.push(
-        <React.Fragment key={key}>
-          {action} {extra}
-          <span className="hl-num hl-digit">{digit}</span>
-        </React.Fragment>
-      );
-    }
-    // 12. Verb digit: is 2
-    else if (match[36]) {
-      const verb = match[37];
-      const digit = match[38];
-      nodes.push(
-        <React.Fragment key={key}>
-          {verb} <span className="hl-num hl-digit">{digit}</span>
-        </React.Fragment>
-      );
-    }
-    // 13. Standalone coordinate part: r4, c7, b3
-    else if (match[39]) {
-      const letter = match[40].toLowerCase();
-      const num = match[41];
-      const type = letter === 'r' ? 'row' : letter === 'c' ? 'col' : 'box';
-      nodes.push(
-        <span key={key} className="coord-cell">
-          <span className="coord-prefix">{letter}</span>
-          <span className={`hl-num hl-${type}`}>{num}</span>
-        </span>
-      );
+        );
+        break;
+      }
+
+      case 'digit': {
+        const d = matchedText.charAt(0);
+        const plural = matchedText.slice(1);
+        nodes.push(
+          <React.Fragment key={key}>
+            <span className="hl-num hl-digit">{d}</span>
+            {plural}
+          </React.Fragment>
+        );
+        break;
+      }
     }
 
-    lastIndex = tokenRegex.lastIndex;
-  }
-
-  // Trailing text
-  if (lastIndex < text.length) {
-    nodes.push(text.slice(lastIndex));
+    pos = earliestMatch.index + matchedText.length;
   }
 
   return nodes;
 }
 
-export function FormattedExplanation({ text, className }: FormattedExplanationProps) {
-  const nodes = React.useMemo(() => formatExplanationText(text), [text]);
+export function FormattedExplanation({ text, step, className }: FormattedExplanationProps) {
+  const nodes = React.useMemo(() => formatExplanationText(text, step), [text, step]);
   return <span className={className}>{nodes}</span>;
 }

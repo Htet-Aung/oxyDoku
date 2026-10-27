@@ -702,6 +702,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                                     <p className="hint-walk-text">
                                       <FormattedExplanation
                                         text={frames[Math.min(walkIndex, frames.length - 1)]?.text ?? ''}
+                                        step={inst.step}
                                       />
                                     </p>
                                     <div className="hint-walk-nav">
@@ -927,6 +928,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                                     <p className="hint-walk-text">
                                       <FormattedExplanation
                                         text={frames[Math.min(walkIndex, frames.length - 1)]?.text ?? ''}
+                                        step={inst.step}
                                       />
                                     </p>
                                     <div className="hint-walk-nav">
