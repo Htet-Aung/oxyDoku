@@ -214,6 +214,9 @@ const ui: Dictionary = {
   "The board and timer reset to the beginning of the practice position. Your progress on this puzzle is lost.": "Brettet og klokken settes tilbake til starten av øvingsstillingen. Det du har gjort i denne oppgaven, går tapt.",
   "The board and timer reset to the beginning. Your progress on this puzzle is lost.": "Brettet og klokken settes tilbake til starten. Det du har gjort i denne oppgaven, går tapt.",
   "Keep playing": "Spill videre",
+  "Change board?": "Bytte brett?",
+  "Change board": "Bytt brett",
+  "Your progress on this current board will be lost.": "Fremdriften din på dette brettet vil gå tapt.",
   "Something went wrong": "Noe gikk galt",
   "sudokUI hit an error it could not recover from. Your game is saved on this device, so reloading usually brings it straight back.": "sudokUI støtte på en feil den ikke klarte å komme seg etter. Spillet ditt er lagret på denne enheten, så det kommer som regel rett tilbake når du laster inn på nytt.",
   "Clears the saved game only; settings and your record stay": "Sletter bare det lagrede spillet; innstillingene og resultatene dine blir værende",
@@ -973,7 +976,18 @@ const ui: Dictionary = {
   "How the Logic Works": "Slik fungerer logikken",
   "Why These Notes Can Be Eliminated": "Hvorfor disse notatene kan fjernes",
   "Why This Digit Is Placed": "Hvorfor dette tallet plasseres",
-  "Pattern Cells & Houses": "Mønsterruter og hus"
+  "Pattern Cells & Houses": "Mønsterruter og hus",
+  "score up to {n}": "poengsum opptil {n}",
+  "score above {n}": "poengsum over {n}",
+  "Gentle Easy puzzle (singles only), score up to 400.": "Skånsomt lett sudoku (kun enkle tall), poengsum opptil 400.",
+  "Easy tier: singles only, score up to 800.": "Nivå Lett: kun enkle tall, poengsum opptil 800.",
+  "Medium tier: requires locked candidates or subsets (pairs/triples), score up to 1000.": "Nivå Middels: krever låste kandidater eller delmengder (par/tripler), poengsum opptil 1000.",
+  "Hard tier: requires basic fish, wings, kites, or unique rectangles, score up to 1600.": "Nivå Vanskelig: krever enkle fisker, vinger, draker eller unike rektangler, poengsum opptil 1600.",
+  "Unfair tier: requires advanced chains, almost locked sets, or finned fish, score up to 1800.": "Nivå Urettferdig: krever avanserte kjeder, nesten låste mengder eller finnefisk, poengsum opptil 1800.",
+  "Extreme tier: requires forcing chains, nets, or high-complexity moves, or any puzzle scoring over 1800.": "Nivå Ekstrem: krever tvingende kjeder, nett eller svært komplekse trekk, eller oppgaver med over 1800 poeng.",
+  "Nightmare: extreme-tier monster puzzle scoring over 3000.": "Mareritt: monsteroppgave på ekstreme nivåer med over 3000 poeng.",
+  "A puzzle’s level is set by the hardest technique it requires, with total score capped at the level limit.": "Et sudokunivå bestemmes av den vanskeligste teknikken det krever, med samlet poengsum begrenset til nivåets tak.",
+  "{level} level (hardest technique required) · HoDoKu rating {score} (limit {limit}). Click for full rating guide.": "{level}-nivå (vanskeligste teknikk som kreves) · HoDoKu-poengsum {score} (grense {limit}). Klikk for full vurderingsveiledning."
 };
 
 export default ui;

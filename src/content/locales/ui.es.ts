@@ -214,6 +214,9 @@ const ui: Dictionary = {
   "The board and timer reset to the beginning of the practice position. Your progress on this puzzle is lost.": "El tablero y el cronómetro vuelven al principio de la posición de práctica. Se pierde tu progreso en este sudoku.",
   "The board and timer reset to the beginning. Your progress on this puzzle is lost.": "El tablero y el cronómetro vuelven al principio. Se pierde tu progreso en este sudoku.",
   "Keep playing": "Seguir jugando",
+  "Change board?": "¿Cambiar de tablero?",
+  "Change board": "Cambiar tablero",
+  "Your progress on this current board will be lost.": "Se perderá tu progreso en este tablero.",
   "Something went wrong": "Algo ha salido mal",
   "sudokUI hit an error it could not recover from. Your game is saved on this device, so reloading usually brings it straight back.": "sudokUI ha tenido un error del que no ha podido recuperarse. Tu partida está guardada en este dispositivo, así que recargar suele recuperarla al instante.",
   "Clears the saved game only; settings and your record stay": "Solo borra la partida guardada; los ajustes y tu historial se conservan",
@@ -973,7 +976,18 @@ const ui: Dictionary = {
   "How the Logic Works": "Cómo funciona la lógica",
   "Why These Notes Can Be Eliminated": "Por qué se pueden eliminar estas notas",
   "Why This Digit Is Placed": "Por qué se coloca esta cifra",
-  "Pattern Cells & Houses": "Casillas y sectores del patrón"
+  "Pattern Cells & Houses": "Casillas y sectores del patrón",
+  "score up to {n}": "puntuación hasta {n}",
+  "score above {n}": "puntuación sobre {n}",
+  "Gentle Easy puzzle (singles only), score up to 400.": "Sudoku fácil y suave (solo individuales), puntuación hasta 400.",
+  "Easy tier: singles only, score up to 800.": "Nivel Fácil: solo individuales, puntuación hasta 800.",
+  "Medium tier: requires locked candidates or subsets (pairs/triples), score up to 1000.": "Nivel Medio: requiere candidatos bloqueados o subconjuntos (parejas/tríos), puntuación hasta 1000.",
+  "Hard tier: requires basic fish, wings, kites, or unique rectangles, score up to 1600.": "Nivel Difícil: requiere peces básicos, alas, cometas o rectángulos únicos, puntuación hasta 1600.",
+  "Unfair tier: requires advanced chains, almost locked sets, or finned fish, score up to 1800.": "Nivel Injusto: requiere cadenas avanzadas, conjuntos casi bloqueados o peces con aleta, puntuación hasta 1800.",
+  "Extreme tier: requires forcing chains, nets, or high-complexity moves, or any puzzle scoring over 1800.": "Nivel Extremo: requiere cadenas forzadas, redes o jugadas muy complejas, o cualquier sudoku con más de 1800 puntos.",
+  "Nightmare: extreme-tier monster puzzle scoring over 3000.": "Pesadilla: sudoku monstruoso de nivel extremo con puntuación superior a 3000.",
+  "A puzzle’s level is set by the hardest technique it requires, with total score capped at the level limit.": "El nivel de un sudoku se define por la técnica más difícil que requiere, con la puntuación total limitada al tope del nivel.",
+  "{level} level (hardest technique required) · HoDoKu rating {score} (limit {limit}). Click for full rating guide.": "Nivel {level} (técnica más difícil requerida) · Puntuación HoDoKu {score} (límite {limit}). Haz clic para ver la guía completa."
 };
 
 export default ui;

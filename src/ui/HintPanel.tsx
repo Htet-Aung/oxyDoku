@@ -143,7 +143,15 @@ export function ChainPanel() {
 }
 const KEY_VIEWS = 8;
 
-export function HintPanel({ onLearn, onReport }: { onLearn: (tech: Tech) => void; onReport?: (hint: Step) => void }) {
+export function HintPanel({
+  onLearn,
+  onReport,
+  onClose
+}: {
+  onLearn: (tech: Tech) => void;
+  onReport?: (hint: Step) => void;
+  onClose?: () => void;
+}) {
   const hint = useGame((s) => s.hint);
   const stage = useGame((s) => s.hintStage);
   const revealHint = useGame((s) => s.revealHint);
@@ -153,6 +161,10 @@ export function HintPanel({ onLearn, onReport }: { onLearn: (tech: Tech) => void
   const dismissHint = useGame((s) => s.dismissHint);
   const t = useT();
   const techWhat = useTechWhat();
+  const handleClose = () => {
+    if (onClose) onClose();
+    else dismissHint();
+  };
 
   // cell names such as r2c3 are explained under the first few hints only:
   // a newcomer needs the key, a regular would find it noise
@@ -186,12 +198,14 @@ export function HintPanel({ onLearn, onReport }: { onLearn: (tech: Tech) => void
     panel.current?.closest('.layout')?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [hint, stage]);
 
+  // All hooks must be called unconditionally on every render before any early return
+  const exp = React.useMemo(() => (hint ? explainStep(hint) : null), [hint]);
+
   if (!hint || stage === 'hidden') return null;
   const info = TECHS[hint.tech];
   const name = t.tech(hint.tech);
   const level = t.level(info.level);
   const needed = neededIn(t, hint.tech);
-  const exp = React.useMemo(() => (hint ? explainStep(hint) : null), [hint]);
   const frames = exp && exp.walkFrames.length > 1 ? exp.walkFrames : walkFrames(hint);
   const walking = stage === 'walk';
   const banded = (role: 'primary' | 'secondary') => !!hint.units?.some((u) => u.role === role);
@@ -222,7 +236,7 @@ export function HintPanel({ onLearn, onReport }: { onLearn: (tech: Tech) => void
           {needed && <p className="hint-freq">{needed}</p>}
           <div className="hint-actions">
             <button onClick={revealHint}>{t('Show me')}</button>
-            <button className="ghost" onClick={dismissHint}>{t('Close')}</button>
+            <button className="ghost" onClick={handleClose}>{t('Close')}</button>
           </div>
         </div>
       ) : (
@@ -319,7 +333,7 @@ export function HintPanel({ onLearn, onReport }: { onLearn: (tech: Tech) => void
                 {t('Looks wrong?')}
               </button>
             )}
-            <button className="ghost" onClick={dismissHint}>{t('Close')}</button>
+            <button className="ghost" onClick={handleClose}>{t('Close')}</button>
           </div>
         </div>
       )}

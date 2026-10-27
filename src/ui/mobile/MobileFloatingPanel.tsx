@@ -103,7 +103,7 @@ export function MobileFloatingPanel({
     }
   }, [activeTab, hintStage]);
 
-  // If no active tab, don't render
+  // If no active tab or activeTab is hint but hint is hidden/dismissed, don't render
   if (!activeTab) return null;
 
   // Walk frames for stepper in compact mode
@@ -356,6 +356,7 @@ export function MobileFloatingPanel({
             <HintPanel
               onLearn={onLearn}
               onReport={(hint) => onReportHint?.(hint)}
+              onClose={onClose}
             />
           )}
 

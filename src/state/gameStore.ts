@@ -2031,6 +2031,40 @@ export function playedOn(s: Pick<GameStore, 'cells' | 'autoCandidates'>): boolea
 }
 
 /**
+ * Whether the current board has user progress that would be lost if a new
+ * board or puzzle is loaded (e.g. changing level, starting practice, custom entry, import).
+ * Returns false if the game is already won or solved, or if the board is untouched.
+ */
+export function hasBoardProgress(
+  game: Pick<GameStore, 'info' | 'won' | 'solved' | 'cells' | 'autoCandidates' | 'history' | 'custom' | 'practiceFound'>,
+  practice?: {
+    userAnswer?: { digits?: number[]; cells?: number[]; tech?: Tech };
+    currentHintLevel?: number;
+    lastResult?: { isCorrect?: boolean } | null;
+  } | null
+): boolean {
+  if (game.won || game.solved) return false;
+  if (game.custom) {
+    return game.cells.some((c) => c.value > 0) || game.history.length > 0;
+  }
+  if (!game.info) return false;
+  if (game.info.practiceTech) {
+    if (game.practiceFound || practice?.lastResult?.isCorrect) return false;
+    const hasPracticeInteraction =
+      (practice && (
+        (practice.userAnswer?.digits?.length ?? 0) > 0 ||
+        (practice.userAnswer?.cells?.length ?? 0) > 0 ||
+        !!practice.userAnswer?.tech ||
+        (practice.currentHintLevel ?? 0) > 0 ||
+        practice.lastResult != null
+      )) ||
+      game.history.length > 0;
+    return !!hasPracticeInteraction;
+  }
+  return playedOn(game) || game.history.length > 0;
+}
+
+/**
  * A game is counted as begun (src/state/telemetry.ts) the first time its
  * board shows anything beyond the givens (playedOn): the player's first
  * digit, mark or colour, candidates switched on (by Auto, Steps or the

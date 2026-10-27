@@ -161,6 +161,26 @@ export function useNewGame() {
 /** what a level asks of you, in plain words, then the techniques behind it */
 const levelDescription = (loc: LearnLocale | undefined, level: LevelPick) =>
   `${(loc?.bandLeads ?? BAND_LEADS)[level]}: ${(loc?.bandNotes ?? BAND_NOTES)[level]}`;
+
+/** a helpful tooltip explaining what the level requires and its score cap */
+const levelTooltip = (t: Translator, level: LevelPick): string => {
+  switch (level) {
+    case 'Beginner':
+      return t('Gentle Easy puzzle (singles only), score up to 400.');
+    case 'Easy':
+      return t('Easy tier: singles only, score up to 800.');
+    case 'Medium':
+      return t('Medium tier: requires locked candidates or subsets (pairs/triples), score up to 1000.');
+    case 'Hard':
+      return t('Hard tier: requires basic fish, wings, kites, or unique rectangles, score up to 1600.');
+    case 'Unfair':
+      return t('Unfair tier: requires advanced chains, almost locked sets, or finned fish, score up to 1800.');
+    case 'Extreme':
+      return t('Extreme tier: requires forcing chains, nets, or high-complexity moves, or any puzzle scoring over 1800.');
+    case 'Nightmare':
+      return t('Nightmare: extreme-tier monster puzzle scoring over 3000.');
+  }
+};
 /** what a technique is, in one line */
 const techWhat = (loc: LearnLocale | undefined, tech: Tech) => loc?.techDocs[tech]?.what ?? TECH_DOCS[tech].what;
 /** another name for it, or the same logic in another family */
@@ -184,14 +204,15 @@ const modeLabel = (t: Translator, mode: SolveMode) => (MODE_LABELS.has(MODE_LABE
 export function NewGameDialog({
   onClose,
   onStart,
-
   onCustom,
-  onDaily
+  onDaily,
+  onConfirmChange
 }: {
   onClose: () => void;
   onStart: (level: LevelPick) => void;
   onCustom: () => void;
   onDaily: () => void;
+  onConfirmChange?: (action: () => void) => void;
 }) {
   const t = useT();
   const loc = useLearnLocale();
@@ -222,17 +243,21 @@ export function NewGameDialog({
             key={level}
             className={`level-btn level-${level.toLowerCase()}`}
             onClick={() => onStart(level)}
+            title={levelTooltip(t, level)}
           >
             <strong>
               {t.level(level)}
               <span className="level-range">
                 {' · '}
-                {rangeOf(level, t.level, (n) => t('up to {n}', { n }), (n) => t('above {n}', { n }), t('no limit||the scores of Extreme'))}
+                {rangeOf(level, t.level, (n) => t('score up to {n}', { n }), (n) => t('score above {n}', { n }), t('no limit||the scores of Extreme'))}
               </span>
             </strong>
             <span>{levelDescription(loc, level)}</span>
           </button>
         ))}
+        <p className="dialog-note">
+          {t('A puzzle’s level is set by the hardest technique it requires, with total score capped at the level limit.')}
+        </p>
         <button className="level-btn" onClick={onCustom}>
           <strong>{t('Custom')}</strong>
           <span>
@@ -241,7 +266,7 @@ export function NewGameDialog({
         </button>
       </div>
       <h4 className="setting-group">{t('Or scan a photo of one')}</h4>
-      <ScanControls onDone={onClose} />
+      <ScanControls onDone={onClose} onConfirmChange={onConfirmChange} />
     </Modal>
   );
 }
@@ -731,7 +756,7 @@ export function ScanDialog({ onClose, lookFor }: { onClose: () => void; lookFor?
  * the camera or the library) or a live camera frame. The digits land on
  * the custom-entry board for checking; `onDone` closes the dialog.
  */
-export function ScanControls({ onDone }: { onDone: () => void }) {
+export function ScanControls({ onDone, onConfirmChange }: { onDone: () => void; onConfirmChange?: (action: () => void) => void }) {
   const loadScan = useGame((s) => s.loadScan);
   const [busy, setBusy] = useState(false);
   const [scanError, setScanError] = useState('');
@@ -766,9 +791,13 @@ export function ScanControls({ onDone }: { onDone: () => void }) {
         setScanError(`${read} ${t('Printed puzzles only; fill the frame with the grid, in good light, and try again.')}`);
         return;
       }
-      closeCamera();
-      loadScan(r.digits, r.doubts, r.preview);
-      onDone();
+      const applyScan = () => {
+        closeCamera();
+        loadScan(r.digits, r.doubts, r.preview);
+        onDone();
+      };
+      if (onConfirmChange) onConfirmChange(applyScan);
+      else applyScan();
     } catch (e) {
       setScanError(e instanceof Error ? e.message : t('The photo could not be read.'));
     } finally {
@@ -905,7 +934,7 @@ function refusalText(r: LinkRefusal, t: Translator): string {
   }
 }
 
-export function ImportDialog({ onClose }: { onClose: () => void }) {
+export function ImportDialog({ onClose, onConfirmChange }: { onClose: () => void; onConfirmChange?: (action: () => void) => void }) {
   const importPuzzle = useGame((s) => s.importPuzzle);
   const importText = useGame((s) => s.importText);
   const importPositionPayload = useGame((s) => s.importPositionPayload);
@@ -918,16 +947,24 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     // grid, a HoDoKu library string, or the 81 characters with their
     // candidates; its candidates come along as centre marks
     if (looksLikePositionImport(text)) {
-      const res = importPositionPayload(text, { force: true });
-      if (!res.ok) setError(res.reason);
-      else onClose();
+      const applyPayload = () => {
+        const res = importPositionPayload(text, { force: true });
+        if (!res.ok) setError(res.reason);
+        else onClose();
+      };
+      if (onConfirmChange) onConfirmChange(applyPayload);
+      else applyPayload();
       return;
     }
     const position = parsePencilGrid(text);
     if (position) {
-      const reason = importText(position);
-      if (reason) setError(reason);
-      else onClose();
+      const applyText = () => {
+        const reason = importText(position);
+        if (reason) setError(reason);
+        else onClose();
+      };
+      if (onConfirmChange) onConfirmChange(applyText);
+      else applyText();
       return;
     }
     // a link from SudokuPad, f-puzzles, Sudoku Exchange or sudoku.coach, the
@@ -945,9 +982,13 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
       setError(refusalText(link, t));
       return;
     }
-    const reason = importPuzzle(link.puzzle, link.source && t(SOURCE_NAMES[link.source]));
-    if (reason) setError(reason);
-    else onClose();
+    const applyPuzzle = () => {
+      const reason = importPuzzle(link.puzzle, link.source && t(SOURCE_NAMES[link.source]));
+      if (reason) setError(reason);
+      else onClose();
+    };
+    if (onConfirmChange) onConfirmChange(applyPuzzle);
+    else applyPuzzle();
   };
 
   return (
@@ -971,7 +1012,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
         <button onClick={doImport}>{t('Load puzzle')}</button>
       </div>
       <h4 className="setting-group">{t('Scan a photo')}</h4>
-      <ScanControls onDone={onClose} />
+      <ScanControls onDone={onClose} onConfirmChange={onConfirmChange} />
     </Modal>
   );
 }

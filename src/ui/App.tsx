@@ -3,7 +3,7 @@
 // toast display and the first-visit bootstrap game.
 import React, { Suspense, useEffect, useState, useRef } from 'react';
 import { SLOP_PX } from './touchIntent';
-import { useGame, rateImport, validatePuzzle, Proof, playedOn, type EntryMode } from '../state/gameStore';
+import { useGame, rateImport, validatePuzzle, Proof, playedOn, hasBoardProgress, type EntryMode } from '../state/gameStore';
 import { cellName, PEERS } from '../engine/board';
 import { dailyPuzzle } from '../engine/daily';
 import { useSettings, THEMES, type Theme } from '../state/settings';
@@ -73,7 +73,7 @@ import { MobileFloatingPanel, type FloatingPanelTab } from './mobile/MobileFloat
 // the guide is a third of the app's code and prose: fetched the first time
 // it opens (and precached for offline), never as part of loading the game
 const LearnDialog = React.lazy(() => import('./Learn').then((m) => ({ default: m.LearnDialog })));
-import { PRACTICE_TECHS, Tech, Level, LEVELS, pickOf } from '../engine/ratings';
+import { PRACTICE_TECHS, Tech, Level, LEVELS, pickOf, LEVEL_MAX_SCORE } from '../engine/ratings';
 import { techFromParam } from '../content/slugs';
 import { parseShareUrl, sharePath, clockOf } from '../content/share';
 import { localDateKey, dateOfKey, loadDailies, findDaily, dailyNumber, parseDailyUrl, dailyPath } from '../content/dailies';
@@ -308,6 +308,15 @@ export default function App() {
   const [victoryDismissed, setVictoryDismissed] = useState(false);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [pendingBoardChange, setPendingBoardChange] = useState<(() => void) | null>(null);
+  const confirmBoardChange = (action: () => void) => {
+    if (hasBoardProgress(useGame.getState(), usePractice.getState())) {
+      setDialog('none');
+      setPendingBoardChange(() => action);
+    } else {
+      action();
+    }
+  };
 
   const isMobile = useIsMobileLayout();
   const [floatingTab, setFloatingTab] = useState<FloatingPanelTab | null>(null);
@@ -360,18 +369,20 @@ export default function App() {
   // the report dialog, with the hint it is about when it came from "Looks wrong?"
   const [report, setReport] = useState<{ kind: ReportKind; hint?: Step } | null>(null);
   const startPracticeMode = (tech: Tech | 'mixed') => {
-    setDialog('none');
-    if (tech === 'mixed') {
-      const mastery = useSettings.getState().mastery;
-      const eligible = PRACTICE_TECHS.filter((t) => isTechniqueVisibleInScan(mastery, t, false));
-      const pool = eligible.length > 0 ? eligible : INTERMEDIATE_TECHS.filter((t) => PRACTICE_TECHS.includes(t));
-      const chosen = pool[Math.floor(Math.random() * pool.length)];
-      usePractice.setState({ mode: 'mixed', mixedPool: pool });
-      start({ kind: 'tech', tech: chosen });
-    } else {
-      usePractice.setState({ mode: 'focused', targetTech: tech });
-      start({ kind: 'tech', tech });
-    }
+    confirmBoardChange(() => {
+      setDialog('none');
+      if (tech === 'mixed') {
+        const mastery = useSettings.getState().mastery;
+        const eligible = PRACTICE_TECHS.filter((t) => isTechniqueVisibleInScan(mastery, t, false));
+        const pool = eligible.length > 0 ? eligible : INTERMEDIATE_TECHS.filter((t) => PRACTICE_TECHS.includes(t));
+        const chosen = pool[Math.floor(Math.random() * pool.length)];
+        usePractice.setState({ mode: 'mixed', mixedPool: pool });
+        start({ kind: 'tech', tech: chosen });
+      } else {
+        usePractice.setState({ mode: 'focused', targetTech: tech });
+        start({ kind: 'tech', tech });
+      }
+    });
   };
 
   useEffect(() => {
@@ -429,24 +440,28 @@ export default function App() {
    *  shows a solved one's win screen, with its time still to send) */
   const playWelcomeDaily = () => {
     if (!welcomeDaily) return;
-    dismissWelcome();
-    const g = useGame.getState();
-    if (!g.custom && g.info?.dailyKey === welcomeDaily.key) return;
-    // another game's win does not show its screen while the daily is fetched
-    if (g.won) setVictoryDismissed(true);
-    startDaily(welcomeDaily.key);
+    confirmBoardChange(() => {
+      dismissWelcome();
+      const g = useGame.getState();
+      if (!g.custom && g.info?.dailyKey === welcomeDaily.key) return;
+      // another game's win does not show its screen while the daily is fetched
+      if (g.won) setVictoryDismissed(true);
+      startDaily(welcomeDaily.key);
+    });
   };
   /** the welcome's easy start: a first visit's own game is an easy one, kept;
    *  a game above Easy, practice, or one already won, none of them begun,
    *  makes way for one (a game still being made is that easy one) */
   const startEasyFirst = () => {
-    dismissWelcome();
-    const g = useGame.getState();
-    if (g.info && (g.won || g.info.practiceTech || LEVELS.indexOf(g.info.level) > LEVELS.indexOf('Easy'))) {
-      // an earlier visit's win does not show its screen while the easy one is made
-      if (g.won) setVictoryDismissed(true);
-      start({ kind: 'level', level: 'Easy' });
-    }
+    confirmBoardChange(() => {
+      dismissWelcome();
+      const g = useGame.getState();
+      if (g.info && (g.won || g.info.practiceTech || LEVELS.indexOf(g.info.level) > LEVELS.indexOf('Easy'))) {
+        // an earlier visit's win does not show its screen while the easy one is made
+        if (g.won) setVictoryDismissed(true);
+        start({ kind: 'level', level: 'Easy' });
+      }
+    });
   };
   /** the band on a hard day, unless it is unknown or the player hides it before a solve */
   const welcomeDailyLabel =
@@ -997,7 +1012,15 @@ export default function App() {
                   type="button"
                   className="board-status-badge mobile-badge"
                   onClick={() => openLearn({ tab: 'rating' })}
-                  title={t('How the HoDoKu rating works, in full')}
+                  title={
+                    info
+                      ? t('{level} level (hardest technique required) · HoDoKu rating {score} (limit {limit}). Click for full rating guide.', {
+                          level: t.level(pickOf(info.level, info.score)),
+                          score: info.score,
+                          limit: LEVEL_MAX_SCORE[info.level] === 2147483647 ? t('no limit||the scores of Extreme') : LEVEL_MAX_SCORE[info.level]
+                        })
+                      : t('How the HoDoKu rating works, in full')
+                  }
                 >
                   <span className="status-dot" aria-hidden="true">●</span>
                   <span className="status-text">
@@ -1212,7 +1235,15 @@ export default function App() {
               type="button"
               className="board-status-badge"
               onClick={() => openLearn({ tab: 'rating' })}
-              title={t('How the HoDoKu rating works, in full')}
+              title={
+                info
+                  ? t('{level} level (hardest technique required) · HoDoKu rating {score} (limit {limit}). Click for full rating guide.', {
+                      level: t.level(pickOf(info.level, info.score)),
+                      score: info.score,
+                      limit: LEVEL_MAX_SCORE[info.level] === 2147483647 ? t('no limit||the scores of Extreme') : LEVEL_MAX_SCORE[info.level]
+                    })
+                  : t('How the HoDoKu rating works, in full')
+              }
             >
               <span className="status-dot" aria-hidden="true">●</span>
               <span className="status-text">
@@ -1716,17 +1747,23 @@ export default function App() {
         <NewGameDialog
           onClose={() => setDialog('none')}
           onStart={(level) => {
-            setDialog('none');
-            start({ kind: 'level', level });
+            confirmBoardChange(() => {
+              setDialog('none');
+              start({ kind: 'level', level });
+            });
           }}
           onDaily={() => {
-            setDialog('none');
-            startDaily();
+            confirmBoardChange(() => {
+              setDialog('none');
+              startDaily();
+            });
           }}
           onCustom={() => {
-            setDialog('none');
-            setCustomError(null);
-            startCustomEntry();
+            confirmBoardChange(() => {
+              setDialog('none');
+              setCustomError(null);
+              startCustomEntry();
+            });
           }}
         />
       )}
@@ -1760,20 +1797,22 @@ export default function App() {
                   }
                 : undefined
             }
-            onExample={async (tech) => {
+            onExample={(tech) => {
               // the example's own puzzle, started as practice of its technique:
               // with "Jump to the technique" on, that is the pictured position
-              const EXAMPLES = await import('../content/examples').then((m) => m.EXAMPLES).catch(() => null);
-              const example = EXAMPLES?.[tech];
-              const rating = example && rateImport(example.puzzle);
-              if (!example || !rating) return;
-              setDialog('none');
-              useGame.getState().startGame(example.puzzle, rating.score, rating.level, tech);
+              confirmBoardChange(async () => {
+                const EXAMPLES = await import('../content/examples').then((m) => m.EXAMPLES).catch(() => null);
+                const example = EXAMPLES?.[tech];
+                const rating = example && rateImport(example.puzzle);
+                if (!example || !rating) return;
+                setDialog('none');
+                useGame.getState().startGame(example.puzzle, rating.score, rating.level, tech);
+              });
             }}
           />
         </Suspense>
       )}
-      {dialog === 'io' && <ImportDialog onClose={() => setDialog('none')} />}
+      {dialog === 'io' && <ImportDialog onClose={() => setDialog('none')} onConfirmChange={confirmBoardChange} />}
       {dialog === 'share' && <ShareDialog onClose={() => setDialog('none')} />}
       {dialog === 'steps' && <SolutionPathDialog onClose={() => setDialog('none')} />}
       {welcome && (
@@ -1925,6 +1964,27 @@ export default function App() {
             openScanner();
           }}
         />
+      )}
+      {pendingBoardChange && (
+        <Modal title={t('Change board?')} onClose={() => setPendingBoardChange(null)}>
+          <p className="dialog-note">
+            {t('Your progress on this current board will be lost.')}
+          </p>
+          <div className="hint-actions">
+            <button
+              onClick={() => {
+                const action = pendingBoardChange;
+                setPendingBoardChange(null);
+                action();
+              }}
+            >
+              {t('Change board')}
+            </button>
+            <button className="ghost" onClick={() => setPendingBoardChange(null)}>
+              {t('Keep playing')}
+            </button>
+          </div>
+        </Modal>
       )}
       <UpdateBar />
       {notice && (
