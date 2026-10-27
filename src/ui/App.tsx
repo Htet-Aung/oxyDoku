@@ -55,7 +55,8 @@ import {
   TerminalIcon,
   InfoIcon,
   OxyDokuLogoIcon,
-  MicroscopeIcon
+  MicroscopeIcon,
+  CameraIcon
 } from './Icons';
 import { PracticePanel } from './PracticePanel';
 import { usePractice } from '../state/practiceStore';
@@ -367,6 +368,7 @@ export default function App() {
     return () => window.removeEventListener('click', onClick);
   }, [showHeaderMenu, isMobile]);
   const [customError, setCustomError] = useState<string | null>(null);
+  const [showMobilePhoto, setShowMobilePhoto] = useState(false);
   const customCells = useGame((s) => (s.custom ? s.cells : null));
   const [customRating, setCustomRating] = useState<{ score: number; level: Level } | null>(null);
 
@@ -1202,15 +1204,40 @@ export default function App() {
 
             {custom && (
               <div className="mobile-custom-bar">
-                {customRating ? (
-                  <div className="mobile-custom-rating">
-                    <span className="status-dot" aria-hidden="true">●</span>
-                    <strong>{t.level(pickOf(customRating.level, customRating.score))} · {customRating.score}</strong>
+                <div className="mobile-custom-header">
+                  {customRating ? (
+                    <div className="mobile-custom-rating">
+                      <span className="status-dot" aria-hidden="true">●</span>
+                      <strong>{t.level(pickOf(customRating.level, customRating.score))} · {customRating.score}</strong>
+                    </div>
+                  ) : (
+                    <span className="mobile-custom-clues">
+                      {givenCount < 17 ? t('Given: {n}/17+', { n: givenCount }) : t('Checking…')}
+                    </span>
+                  )}
+                  {scanPreview && (
+                    <button
+                      type="button"
+                      className="mobile-custom-photo-btn"
+                      onClick={() => setShowMobilePhoto((v) => !v)}
+                      aria-expanded={showMobilePhoto}
+                    >
+                      <CameraIcon size={13} />
+                      <span>{showMobilePhoto ? t('Hide photo') : t('Photo preview')}</span>
+                    </button>
+                  )}
+                </div>
+                {showMobilePhoto && scanPreview && (
+                  <div className="mobile-custom-preview-drawer">
+                    <img src={scanPreview} alt={t('The scanned grid, as the scanner saw it')} />
+                    <p>
+                      {t(
+                        scanDoubts.length > 0
+                          ? "The photo, straightened. Compare it with the board; the red cells are the scanner's doubts: a digit it was unsure of, or ink it could not read."
+                          : 'The photo, straightened. Compare it with the board.'
+                      )}
+                    </p>
                   </div>
-                ) : (
-                  <span className="mobile-custom-clues">
-                    {givenCount < 17 ? t('Given: {n}/17+', { n: givenCount }) : t('Checking…')}
-                  </span>
                 )}
                 {customError && <p className="dialog-error mobile-custom-error">{customError}</p>}
                 <div className="mobile-custom-actions">
@@ -1226,26 +1253,30 @@ export default function App() {
                       }
                     }}
                   >
-                    <MicroscopeIcon size={14} /> {t('Check & scan patterns')}
+                    <MicroscopeIcon size={14} />
+                    <span>{t('Check & scan patterns')}</span>
                   </button>
-                  <button
-                    type="button"
-                    className="mobile-custom-action-btn"
-                    onClick={() => setCustomError(finishCustomEntry())}
-                  >
-                    <CheckIcon size={14} /> {t('Check & play')}
-                  </button>
-                  <button
-                    type="button"
-                    className="mobile-custom-action-btn ghost"
-                    onClick={() => {
-                      setCustomError(null);
-                      cancelCustomEntry();
-                      if (!useGame.getState().info) start({ kind: 'level', level: 'Easy' });
-                    }}
-                  >
-                    {t('Cancel')}
-                  </button>
+                  <div className="mobile-custom-secondary-actions">
+                    <button
+                      type="button"
+                      className="mobile-custom-action-btn ghost"
+                      onClick={() => setCustomError(finishCustomEntry())}
+                    >
+                      <CheckIcon size={14} />
+                      <span>{t('Check & play')}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="mobile-custom-action-btn ghost"
+                      onClick={() => {
+                        setCustomError(null);
+                        cancelCustomEntry();
+                        if (!useGame.getState().info) start({ kind: 'level', level: 'Easy' });
+                      }}
+                    >
+                      <span>{t('Cancel')}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

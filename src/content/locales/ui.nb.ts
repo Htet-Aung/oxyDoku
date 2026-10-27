@@ -992,7 +992,9 @@ const ui: Dictionary = {
   "Checking…": "Sjekker…",
   "Check & scan patterns": "Sjekk og skann mønstre",
   "{level} level · HoDoKu rating {score}": "{level}-nivå · HoDoKu-poengsum {score}",
-  "Unique solution": "Entydig løsning"
+  "Unique solution": "Entydig løsning",
+  "Photo preview": "Vis bilde",
+  "Hide photo": "Skjul bilde"
 };
 
 export default ui;

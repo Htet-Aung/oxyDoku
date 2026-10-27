@@ -58,4 +58,18 @@ describe('oxyDoku Mobile Layout & Palette Customization', () => {
     useSettings.getState().resetPalette();
     expect(useSettings.getState().customPalette).toEqual([...DEFAULT_PALETTE]);
   });
+
+  it('contains expected mobile custom action bar and photo preview CSS classes in styles.css', async () => {
+    const fs = await import('fs');
+    const css = fs.readFileSync('src/ui/styles.css', 'utf-8');
+    expect(css).toContain('.mobile-custom-bar');
+    expect(css).toContain('.mobile-custom-header');
+    expect(css).toContain('.mobile-custom-photo-btn');
+    expect(css).toContain('.mobile-custom-preview-drawer');
+    expect(css).toContain('.mobile-custom-action-btn.primary');
+    expect(css).toContain('.mobile-custom-secondary-actions');
+    expect(css).toContain('.mobile-custom-action-btn.ghost');
+    // Ensure primary action button does not use invisible cyan on cyan
+    expect(css).toContain('color: var(--on-accent, #ffffff);');
+  });
 });
