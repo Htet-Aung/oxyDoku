@@ -6,7 +6,8 @@ import { buildProgressiveHints } from '../src/engine/progressiveHints';
 import {
   verifyPracticeAnswer,
   UserPracticeAnswer,
-  PracticeVerificationResult
+  PracticeVerificationResult,
+  extractBoardDeductions
 } from '../src/engine/practiceVerifier';
 import {
   getTechniqueGuide,
@@ -231,6 +232,48 @@ describe('Phase 5 — Turn Pattern Lab into a Learning and Practice Tool (tests/
       expect(result.status).toBe('incorrect');
       expect(result.suggestedAction).toBe('hint');
     });
+
+    it('accepts exact match from candidate eliminations alone without requiring cell keying', () => {
+      const answer: UserPracticeAnswer = {
+        tech: 'X_WING',
+        eliminations: [
+          { cell: 9, digit: 4 },
+          { cell: 27, digit: 4 }
+        ]
+      };
+
+      const result = verifyPracticeAnswer(answer, mockXWingStep, [mockXWingStep]);
+      expect(result.isCorrect).toBe(true);
+      expect(result.status).toBe('exact');
+      expect(result.title).toContain('Spot on! Valid X-Wing');
+      expect(result.feedback).toContain('candidate 4 from r2c1, 4 from r4c1');
+    });
+
+    it('accepts exact match when user selects the deduction / elimination cells and digit', () => {
+      const answer: UserPracticeAnswer = {
+        tech: 'X_WING',
+        digit: 4,
+        cells: [9, 27] // The elimination cells (r2c1 and r4c1)
+      };
+
+      const result = verifyPracticeAnswer(answer, mockXWingStep, [mockXWingStep]);
+      expect(result.isCorrect).toBe(true);
+      expect(result.status).toBe('exact');
+      expect(result.title).toContain('Spot on! Valid X-Wing');
+    });
+
+    it('provides clear feedback when an eliminated candidate note is not justified by the pattern', () => {
+      const answer: UserPracticeAnswer = {
+        tech: 'X_WING',
+        eliminations: [{ cell: 50, digit: 4 }] // Cell 50 is not eliminated by X-Wing
+      };
+
+      const result = verifyPracticeAnswer(answer, mockXWingStep, [mockXWingStep]);
+      expect(result.isCorrect).toBe(false);
+      expect(result.status).toBe('incorrect');
+      expect(result.title).toContain('Candidate not eliminated');
+      expect(result.feedback).toContain('r6c6');
+    });
   });
 
   describe('3. Technique Logic, Pitfalls & Kin Documentation', () => {
@@ -406,6 +449,63 @@ describe('Phase 5 — Turn Pattern Lab into a Learning and Practice Tool (tests/
 
       expect(Object.keys(usePractice.getState().progress).length).toBe(0);
       expect(usePractice.getState().history.length).toBe(0);
+    });
+
+    it('extracts candidate eliminations and digit placements from board cell diffs', () => {
+      const initialCells = Array.from({ length: 81 }, () => ({
+        value: 0,
+        excluded: 0,
+        corner: bit(1) | bit(4),
+        center: 0
+      }));
+
+      const currentCells = Array.from({ length: 81 }, (_, i) => ({
+        value: i === 10 ? 3 : 0,
+        excluded: i === 9 ? bit(4) : 0,
+        corner: i === 27 ? bit(1) : bit(1) | bit(4), // eliminated 4 from cell 27
+        center: 0
+      }));
+
+      // auto-candidates mode diff
+      const autoDeductions = extractBoardDeductions(initialCells, currentCells, true);
+      expect(autoDeductions.eliminations).toEqual([{ cell: 9, digit: 4 }]);
+      expect(autoDeductions.placements).toEqual([{ cell: 10, digit: 3 }]);
+
+      // manual marks mode diff
+      const manualDeductions = extractBoardDeductions(initialCells, currentCells, false);
+      expect(manualDeductions.eliminations).toEqual([{ cell: 27, digit: 4 }]);
+      expect(manualDeductions.placements).toEqual([{ cell: 10, digit: 3 }]);
+    });
+
+    it('synchronizes board note removals directly into practice verification without form submit', () => {
+      const store = usePractice.getState();
+      const initialCells = Array.from({ length: 81 }, () => ({
+        value: 0,
+        excluded: 0,
+        corner: 0,
+        center: 0
+      }));
+
+      store.startFocusedPractice('X_WING', mockXWingStep, [mockXWingStep], initialCells);
+
+      // Player strikes out candidate 4 from cell 9 and cell 27 directly on the board
+      const currentCells = Array.from({ length: 81 }, (_, i) => ({
+        value: 0,
+        excluded: (i === 9 || i === 27) ? bit(4) : 0,
+        corner: 0,
+        center: 0
+      }));
+
+      const result = store.syncBoardDeductions(currentCells, true);
+      expect(result).not.toBeNull();
+      expect(result?.isCorrect).toBe(true);
+      expect(result?.status).toBe('exact');
+      expect(result?.title).toContain('Spot on! Valid X-Wing');
+
+      const state = usePractice.getState();
+      expect(state.exerciseState).toBe('submitted');
+      expect(state.lastResult?.isCorrect).toBe(true);
+      expect(state.progress.X_WING?.successes).toBe(1);
     });
   });
 

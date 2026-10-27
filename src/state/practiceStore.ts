@@ -42,7 +42,9 @@ import { CellDigit, Step } from '../engine/steps';
 import {
   UserPracticeAnswer,
   PracticeVerificationResult,
-  verifyPracticeAnswer
+  verifyPracticeAnswer,
+  extractBoardDeductions,
+  BoardCellLike
 } from '../engine/practiceVerifier';
 import {
   ProgressiveHintStage,
@@ -78,6 +80,7 @@ export interface PracticeState {
   exerciseState: ExerciseState;
   targetStep: Step | null;
   allValidSteps: Step[];
+  initialCells: BoardCellLike[] | null;
   currentHintLevel: 0 | 1 | 2 | 3 | 4;
   userAnswer: UserPracticeAnswer;
   lastResult: PracticeVerificationResult | null;
@@ -88,8 +91,9 @@ export interface PracticeState {
   history: PracticeHistoryEntry[];
 
   // Actions
-  startFocusedPractice: (tech: Tech, targetStep: Step, allValidSteps?: Step[]) => void;
-  startMixedPractice: (mixedPool: Tech[], targetStep: Step, allValidSteps?: Step[]) => void;
+  startFocusedPractice: (tech: Tech, targetStep: Step, allValidSteps?: Step[], initialCells?: BoardCellLike[]) => void;
+  startMixedPractice: (mixedPool: Tech[], targetStep: Step, allValidSteps?: Step[], initialCells?: BoardCellLike[]) => void;
+  syncBoardDeductions: (currentCells: BoardCellLike[], autoCandidates: boolean) => PracticeVerificationResult | null;
   setUserDigit: (digit: number | null) => void;
   toggleUserDigit: (digit: number) => void;
   setUserCells: (cells: number[]) => void;
@@ -98,7 +102,7 @@ export interface PracticeState {
   setUserElimination: (elim: CellDigit) => void;
   clearUserAnswer: () => void;
   requestNextHint: () => ProgressiveHintStage | null;
-  submitAnswer: () => PracticeVerificationResult | null;
+  submitAnswer: (activeSelection?: number[], currentCells?: BoardCellLike[], autoCandidates?: boolean) => PracticeVerificationResult | null;
   revealSolution: () => void;
   exitPractice: () => void;
   recordStudied: (tech: Tech) => void;
@@ -115,6 +119,7 @@ export const usePractice = create<PracticeState>()(
       exerciseState: 'idle',
       targetStep: null,
       allValidSteps: [],
+      initialCells: null,
       currentHintLevel: 0,
       userAnswer: { cells: [], digits: [] },
       lastResult: null,
@@ -123,7 +128,7 @@ export const usePractice = create<PracticeState>()(
       progress: {},
       history: [],
 
-      startFocusedPractice: (tech, targetStep, allValidSteps = []) =>
+      startFocusedPractice: (tech, targetStep, allValidSteps = [], initialCells) =>
         set({
           mode: 'focused',
           targetTech: tech,
@@ -131,12 +136,13 @@ export const usePractice = create<PracticeState>()(
           exerciseState: 'answering',
           targetStep,
           allValidSteps: allValidSteps.length > 0 ? allValidSteps : [targetStep],
+          initialCells: initialCells ? initialCells.map((c) => ({ ...c })) : null,
           currentHintLevel: 0,
           userAnswer: { tech, cells: [], digits: [] },
           lastResult: null
         }),
 
-      startMixedPractice: (mixedPool, targetStep, allValidSteps = []) =>
+      startMixedPractice: (mixedPool, targetStep, allValidSteps = [], initialCells) =>
         set({
           mode: 'mixed',
           targetTech: null,
@@ -144,6 +150,7 @@ export const usePractice = create<PracticeState>()(
           exerciseState: 'answering',
           targetStep,
           allValidSteps: allValidSteps.length > 0 ? allValidSteps : [targetStep],
+          initialCells: initialCells ? initialCells.map((c) => ({ ...c })) : null,
           currentHintLevel: 0,
           userAnswer: { cells: [], digits: [] },
           lastResult: null
@@ -263,17 +270,121 @@ export const usePractice = create<PracticeState>()(
         return stage;
       },
 
-      submitAnswer: () => {
+      syncBoardDeductions: (currentCells, autoCandidates) => {
+        const s = get();
+        if (s.mode === 'inactive' || !s.targetStep || !s.initialCells) return null;
+
+        const deductions = extractBoardDeductions(s.initialCells, currentCells, autoCandidates);
+
+        // If no moves made yet on the board
+        if (deductions.eliminations.length === 0 && deductions.placements.length === 0) {
+          if (s.lastResult?.isCorrect) return s.lastResult;
+          // Clear previous board move feedback if user undid back to start
+          if (s.userAnswer.eliminations?.length || s.userAnswer.placements?.length) {
+            set((prev) => ({
+              userAnswer: {
+                ...prev.userAnswer,
+                eliminations: [],
+                placements: []
+              },
+              lastResult: null
+            }));
+          }
+          return null;
+        }
+
+        const answer: UserPracticeAnswer = {
+          ...s.userAnswer,
+          tech: s.mode === 'focused' ? s.targetTech ?? undefined : s.userAnswer.tech,
+          eliminations: deductions.eliminations,
+          placements: deductions.placements,
+          digits: deductions.eliminations.length > 0
+            ? [...new Set(deductions.eliminations.map((e) => e.digit))]
+            : deductions.placements.length > 0
+              ? [...new Set(deductions.placements.map((p) => p.digit))]
+              : s.userAnswer.digits
+        };
+
+        const result = verifyPracticeAnswer(answer, s.targetStep, s.allValidSteps);
+
+        set({
+          userAnswer: answer,
+          lastResult: result,
+          exerciseState: result.isCorrect ? 'submitted' : s.exerciseState
+        });
+
+        // Record progress if exact or alternative match
+        if (result.isCorrect && s.trackingEnabled && s.exerciseState !== 'submitted') {
+          const evaluatedTech = result.matchedStep?.tech ?? s.targetStep.tech;
+          const curr = s.progress[evaluatedTech] ?? {
+            tech: evaluatedTech,
+            attempts: 0,
+            successes: 0,
+            hintsUsed: s.currentHintLevel
+          };
+
+          const updatedProgress: TechProgress = {
+            ...curr,
+            attempts: curr.attempts + 1,
+            successes: curr.successes + 1,
+            lastPracticedAt: Date.now()
+          };
+
+          const newHistoryEntry: PracticeHistoryEntry = {
+            id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            timestamp: Date.now(),
+            tech: evaluatedTech,
+            mode: s.mode,
+            success: true,
+            hintsUsed: s.currentHintLevel,
+            matchedAlternative: result.status === 'alternative'
+          };
+
+          set((state) => ({
+            progress: {
+              ...state.progress,
+              [evaluatedTech]: updatedProgress
+            },
+            history: [newHistoryEntry, ...state.history].slice(0, 50)
+          }));
+        }
+
+        return result;
+      },
+
+      submitAnswer: (activeSelection, currentCells, autoCandidates) => {
         const s = get();
         if (!s.targetStep) return null;
 
+        // If user cells empty, fall back to active board selection if passed
+        let cells = s.userAnswer.cells;
+        if ((!cells || cells.length === 0) && activeSelection && activeSelection.length > 0) {
+          cells = [...activeSelection].sort((a, b) => a - b);
+        }
+
+        let elims = s.userAnswer.eliminations;
+        let places = s.userAnswer.placements;
+        if (s.initialCells && currentCells && autoCandidates !== undefined) {
+          const deductions = extractBoardDeductions(s.initialCells, currentCells, autoCandidates);
+          if (deductions.eliminations.length > 0) elims = deductions.eliminations;
+          if (deductions.placements.length > 0) places = deductions.placements;
+        }
+
+        const answerToVerify: UserPracticeAnswer = {
+          ...s.userAnswer,
+          cells,
+          eliminations: elims,
+          placements: places
+        };
+
         const result = verifyPracticeAnswer(
-          s.userAnswer,
+          answerToVerify,
           s.targetStep,
           s.allValidSteps
         );
 
         set({
+          userAnswer: answerToVerify,
           lastResult: result,
           exerciseState: 'submitted'
         });
@@ -330,6 +441,7 @@ export const usePractice = create<PracticeState>()(
           exerciseState: 'idle',
           targetStep: null,
           allValidSteps: [],
+          initialCells: null,
           currentHintLevel: 0,
           userAnswer: { cells: [], digits: [] },
           lastResult: null

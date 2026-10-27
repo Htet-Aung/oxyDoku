@@ -35,6 +35,7 @@ import { POSITION_IMPORT_HASH_PARAM } from '../content/sudokuExchangeImport';
 import { ReportDialog } from './ReportDialog';
 import type { ReportKind } from './report';
 import type { Step } from '../engine/steps';
+import { walkFrames } from '../engine/hintFrames';
 import { ProgressDialog } from './Progress';
 import { usePatternScanner } from '../state/scannerStore';
 import { PatternScannerPanel } from './PatternScannerPanel';
@@ -421,11 +422,12 @@ export default function App() {
       const g = engineGrid(useGame.getState().cells);
       const scanRes = findAllPatternInstances(g, { useUniqueness: true, includeDisabled: true });
       const currentMode = usePractice.getState().mode;
+      const initialCells = useGame.getState().cells.map((c) => ({ ...c }));
       if (currentMode === 'mixed') {
         const pool = usePractice.getState().mixedPool;
-        usePractice.getState().startMixedPractice(pool, practiceTarget, scanRes.instances.map((i) => i.step));
+        usePractice.getState().startMixedPractice(pool, practiceTarget, scanRes.instances.map((i) => i.step), initialCells);
       } else {
-        usePractice.getState().startFocusedPractice(info.practiceTech, practiceTarget, scanRes.instances.map((i) => i.step));
+        usePractice.getState().startFocusedPractice(info.practiceTech, practiceTarget, scanRes.instances.map((i) => i.step), initialCells);
       }
     } else if (!info?.practiceTech) {
       if (usePractice.getState().mode !== 'inactive') {
@@ -863,14 +865,20 @@ export default function App() {
       }
       // walking a hint: the arrow keys step through its frames, Escape
       // returns to the whole drawing
-      const walking = useGame.getState().hintStage === 'walk';
-      if (walking && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
-        e.preventDefault();
-        useGame.getState().walkHint(e.code === 'ArrowRight' ? 1 : -1);
-        return;
+      const g = useGame.getState();
+      const walking = g.hintStage === 'walk';
+      const canStartWalk = g.hintStage === 'full' && !!g.hint && walkFrames(g.hint).length > 1;
+      if ((walking || canStartWalk) && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
+        if (!walking && e.code === 'ArrowLeft') {
+          // not walking yet; let board navigation handle it
+        } else {
+          e.preventDefault();
+          g.walkHint(e.code === 'ArrowRight' ? 1 : -1);
+          return;
+        }
       }
       if (walking && e.code === 'Escape') {
-        useGame.getState().revealHint();
+        g.revealHint();
         return;
       }
       if ((mod && e.code === 'KeyZ' && !e.shiftKey) || (!mod && e.code === 'BracketLeft'))

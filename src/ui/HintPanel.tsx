@@ -168,9 +168,9 @@ export function HintPanel({
 
   // cell names such as r2c3 are explained under the first few hints only:
   // a newcomer needs the key, a regular would find it noise
-  const [showKey] = useState(() => Number(localStorage.getItem(KEY_SEEN) ?? 0) < KEY_VIEWS);
+  const [showKey] = useState(() => (typeof localStorage !== 'undefined' ? Number(localStorage.getItem(KEY_SEEN) ?? 0) : 0) < KEY_VIEWS);
   useEffect(() => {
-    if (hint && stage === 'full' && showKey) {
+    if (typeof localStorage !== 'undefined' && hint && stage === 'full' && showKey) {
       localStorage.setItem(KEY_SEEN, String(Number(localStorage.getItem(KEY_SEEN) ?? 0) + 1));
     }
   }, [hint, stage, showKey]);

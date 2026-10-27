@@ -5831,6 +5831,32 @@ html:not([lang='en']) .zone-note {
   cursor: pointer;
 }
 
+.practice-tip {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--muted, #94a3b8);
+  line-height: 1.45;
+}
+
+.practice-live-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent, #60a5fa);
+  margin-left: 6px;
+}
+
+.cell-tag.elim-tag {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.cell-tag.place-tag {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #86efac;
+}
+
 .cell-tag:hover {
   background: rgba(239, 68, 68, 0.3);
   color: #fca5a5;
@@ -7180,7 +7206,12 @@ html, body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: max-height 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease;
+  max-height: calc(100% - 16px);
+  transition: max-height 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease;
+}
+
+.mobile-floating-panel.dragging {
+  transition: none !important;
 }
 
 .mobile-floating-panel.peeking {
@@ -7188,12 +7219,12 @@ html, body {
 }
 
 .mobile-floating-panel.expanded {
-  max-height: 62vh;
-  height: 62vh;
+  max-height: min(62vh, calc(100% - 16px));
+  height: min(62vh, calc(100% - 16px));
 }
 
 .mobile-floating-panel.compact {
-  max-height: 230px;
+  max-height: min(240px, calc(100% - 16px));
 }
 
 .mobile-floating-panel.pill {
@@ -7223,6 +7254,9 @@ html, body {
   justify-content: space-between;
   padding: 4px 12px 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 
 .mobile-floating-title-group {
@@ -7355,6 +7389,30 @@ html, body {
 }
 
 /* Pill view */
+.mobile-floating-pill-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 0 8px 0 12px;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.mobile-floating-pill-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.45);
+  flex-shrink: 0;
+}
+
+:root[data-theme='light'] .mobile-floating-pill-grip,
+:root[data-theme='rose'] .mobile-floating-pill-grip {
+  color: rgba(0, 0, 0, 0.4);
+}
+
 .mobile-floating-pill-content {
   display: flex;
   align-items: center;
@@ -7365,6 +7423,7 @@ html, body {
 }
 
 .mobile-floating-pill-text {
+  flex: 1;
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
@@ -7381,11 +7440,25 @@ html, body {
   padding: 8px 12px 10px;
 }
 
+.mobile-compact-body {
+  max-height: 120px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
 .mobile-compact-description {
   font-size: 12px;
   line-height: 1.45;
   color: var(--text, #e2e8f0);
   margin: 0;
+}
+
+.mobile-compact-what {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--muted);
+  margin-top: 4px;
 }
 
 .mobile-compact-actions {
@@ -7394,6 +7467,12 @@ html, body {
   flex-wrap: wrap;
   gap: 6px;
   justify-content: space-between;
+}
+
+.mobile-compact-actions-secondary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .mobile-compact-stepper {

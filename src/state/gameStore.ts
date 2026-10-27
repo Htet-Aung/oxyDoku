@@ -29,6 +29,7 @@ import { Level, Tech, SOLVE_ORDER, hintOrder, asLevel, pickOf } from '../engine/
 import { useSettings } from './settings';
 import { useStats } from './stats';
 import { useTelemetry } from './telemetry';
+import { usePractice } from './practiceStore';
 import { justifyMove } from './pools';
 import { translator, msg } from '../content/i18n';
 import type { TextPosition } from '../content/textGrid';
@@ -539,7 +540,9 @@ function applyValidatedPosition(res: ValidatedPositionImport) {
 
 export const useGame = create<GameStore>()(
   persist(
-    (set, get) => ({
+    (set, get, api) => {
+      (api as any).getInitialState = () => get();
+      return {
       info: null,
       cells: Array.from({ length: 81 }, emptyCell),
       custom: false,
@@ -999,11 +1002,17 @@ export const useGame = create<GameStore>()(
         if (!changed) return;
         const won = s.info ? checkWin(cells, s.info.solution) : false;
         // practice: did one of these moves do what the target does?
-        const found =
+        let found =
           !s.practiceFound &&
           !!s.practiceTarget &&
           !!before &&
           moves.some((m) => matchesTarget(s.practiceTarget!, before, m));
+        if (s.info?.practiceTech && usePractice.getState().mode !== 'inactive') {
+          const pracRes = usePractice.getState().syncBoardDeductions(cells, s.autoCandidates);
+          if (pracRes?.isCorrect) {
+            found = true;
+          }
+        }
         set({
           cells,
           history,
@@ -1125,6 +1134,9 @@ export const useGame = create<GameStore>()(
           hintStage: 'hidden',
           errors: []
         });
+        if (s.info?.practiceTech && usePractice.getState().mode !== 'inactive') {
+          usePractice.getState().syncBoardDeductions(cells, s.autoCandidates);
+        }
       },
 
       clearNotice: () => set({ notice: null }),
@@ -1142,6 +1154,9 @@ export const useGame = create<GameStore>()(
           hintStage: 'hidden',
           errors: []
         });
+        if (s.info?.practiceTech && usePractice.getState().mode !== 'inactive') {
+          usePractice.getState().syncBoardDeductions(prev, s.autoCandidates);
+        }
       },
 
       redo: () => {
@@ -1162,6 +1177,9 @@ export const useGame = create<GameStore>()(
           ...(won ? { elapsedBefore: get().elapsedMs(), paused: true } : {})
         });
         if (won) recordWin(get());
+        if (s.info?.practiceTech && usePractice.getState().mode !== 'inactive') {
+          usePractice.getState().syncBoardDeductions(next, s.autoCandidates);
+        }
       },
 
       /**
@@ -1997,7 +2015,8 @@ export const useGame = create<GameStore>()(
         const s = get();
         return s.paused ? s.elapsedBefore : s.elapsedBefore + (Date.now() - s.startedAt);
       }
-    }),
+      };
+    },
     {
       name: 'sudokui-game-v1',
       partialize: (s) => ({

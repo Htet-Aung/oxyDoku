@@ -56,12 +56,22 @@ export function PracticePanel({
   const submitAnswer = usePractice((s) => s.submitAnswer);
   const revealSolution = usePractice((s) => s.revealSolution);
   const exitPractice = usePractice((s) => s.exitPractice);
+  const syncBoardDeductions = usePractice((s) => s.syncBoardDeductions);
 
   const boardSelection = useGame((s) => s.selection);
+  const boardCells = useGame((s) => s.cells);
+  const autoCandidates = useGame((s) => s.autoCandidates);
   const selectBoard = useGame((s) => s.select);
   const setHint = useGame((s) => s.showStep);
   const dismissHint = useGame((s) => s.dismissHint);
   const walkHint = useGame((s) => s.walkHint);
+
+  // Synchronize board note eliminations and placements directly with the practice store
+  useEffect(() => {
+    if (mode !== 'inactive') {
+      syncBoardDeductions(boardCells, autoCandidates);
+    }
+  }, [boardCells, autoCandidates, mode, syncBoardDeductions]);
 
   // Progressive hints generator
   const progressive = useMemo(() => {
@@ -123,6 +133,9 @@ export function PracticePanel({
 
   const selectedDigits = userAnswer.digits ?? [];
   const selectedCells = userAnswer.cells ?? [];
+  const activeCells = selectedCells.length > 0 ? selectedCells : boardSelection;
+  const eliminations = userAnswer.eliminations ?? [];
+  const placements = userAnswer.placements ?? [];
 
   // Use current board selection as pattern cells
   const handleAdoptSelection = () => {
@@ -136,12 +149,30 @@ export function PracticePanel({
   };
 
   const handleSubmit = () => {
-    submitAnswer();
+    submitAnswer(
+      selectedCells.length > 0 ? selectedCells : boardSelection,
+      boardCells,
+      autoCandidates
+    );
   };
 
   const handleReveal = () => {
     revealSolution();
   };
+
+  const handleClear = () => {
+    clearUserAnswer();
+    if (boardSelection.length > 0) {
+      selectBoard([], false);
+    }
+  };
+
+  const canCheck =
+    selectedDigits.length > 0 ||
+    selectedCells.length > 0 ||
+    boardSelection.length > 0 ||
+    eliminations.length > 0 ||
+    placements.length > 0;
 
   const currentHint = progressive && currentHintLevel > 0
     ? progressive.stages[currentHintLevel - 1]
@@ -196,6 +227,42 @@ export function PracticePanel({
 
       {/* Answer Input Controls */}
       <div className="practice-answer-section">
+        <p className="practice-tip">
+          {t('Strike out eliminated notes directly on the board, or select the key digit and deduction/pattern cells below.')}
+        </p>
+
+        {/* Board Eliminations Detected */}
+        {eliminations.length > 0 && (
+          <div className="practice-input-group">
+            <label className="practice-label">
+              {t('Eliminated Notes ({n}):', { n: eliminations.length })}
+            </label>
+            <div className="practice-cell-tags">
+              {eliminations.map((e) => (
+                <span key={`${e.cell}-${e.digit}`} className="cell-tag elim-tag">
+                  {cellName(e.cell)}: -{e.digit}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Board Placements Detected */}
+        {placements.length > 0 && (
+          <div className="practice-input-group">
+            <label className="practice-label">
+              {t('Placed Digits ({n}):', { n: placements.length })}
+            </label>
+            <div className="practice-cell-tags">
+              {placements.map((p) => (
+                <span key={`${p.cell}-${p.digit}`} className="cell-tag place-tag">
+                  {cellName(p.cell)}: {p.digit}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* In Mixed Mode: Technique Selector */}
         {mode === 'mixed' && (
           <div className="practice-input-group">
@@ -239,31 +306,37 @@ export function PracticePanel({
           </div>
         </div>
 
-        {/* Participating Cells Selection */}
+        {/* Participating / Elimination Cells Selection */}
         <div className="practice-input-group">
           <div className="practice-label-with-action">
             <label className="practice-label">
-              {t('Pattern Cells ({n}):', { n: selectedCells.length })}
+              {t('Selected Cells ({n}):', { n: activeCells.length })}
+              {selectedCells.length === 0 && boardSelection.length > 0 && (
+                <span className="practice-live-badge">{t('(from board)')}</span>
+              )}
             </label>
-            {boardSelection.length > 0 && (
+            {boardSelection.length > 0 && selectedCells.length === 0 && (
               <button
                 type="button"
                 className="btn-text-action"
                 onClick={handleAdoptSelection}
-                title={t('Adopt currently selected cells on the grid')}
+                title={t('Lock current board selection into answer')}
               >
-                {t('Use board selection ({n})', { n: boardSelection.length })}
+                {t('Lock selection ({n})', { n: boardSelection.length })}
               </button>
             )}
           </div>
           <div className="practice-cells-display">
-            {selectedCells.length > 0 ? (
+            {activeCells.length > 0 ? (
               <div className="practice-cell-tags">
-                {selectedCells.map((c) => (
+                {activeCells.map((c) => (
                   <span
                     key={c}
                     className="cell-tag"
-                    onClick={() => toggleUserCell(c)}
+                    onClick={() => {
+                      if (selectedCells.length > 0) toggleUserCell(c);
+                      else selectBoard(boardSelection.filter((x) => x !== c), false);
+                    }}
                     title={t('Click to remove cell')}
                   >
                     {cellName(c)} <CloseIcon size={11} />
@@ -272,7 +345,7 @@ export function PracticePanel({
               </div>
             ) : (
               <span className="practice-empty-note">
-                {t('Click cells on the grid, then tap "Use board selection"')}
+                {t('Strike out notes on the board, or select cells and tap Check Answer')}
               </span>
             )}
           </div>
@@ -327,8 +400,8 @@ export function PracticePanel({
           <button
             type="button"
             className="ghost"
-            onClick={clearUserAnswer}
-            disabled={selectedDigits.length === 0 && selectedCells.length === 0}
+            onClick={handleClear}
+            disabled={selectedDigits.length === 0 && selectedCells.length === 0 && boardSelection.length === 0 && eliminations.length === 0}
           >
             {t('Clear')}
           </button>
@@ -336,7 +409,7 @@ export function PracticePanel({
             type="button"
             className="primary"
             onClick={handleSubmit}
-            disabled={selectedCells.length === 0 && selectedDigits.length === 0}
+            disabled={!canCheck}
           >
             <CheckIcon size={14} /> {t('Check Answer')}
           </button>
