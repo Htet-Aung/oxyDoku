@@ -22,6 +22,7 @@ import { stepText } from '../content/eureka';
 import { copyText } from './send';
 import { MicroscopeIcon, GearIcon, SearchIcon, GraduationCapIcon, CheckIcon, LightbulbIcon } from './Icons';
 import { StepExplanationView } from './StepExplanationView';
+import { FormattedExplanation } from './FormattedExplanation';
 import { explainStep } from '../content/stepExplainer';
 
 const ALL_CATEGORIES: Category[] = [
@@ -699,7 +700,9 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                                 {walking && frames.length > 0 ? (
                                   <div className="hint-walk scanner-walk-box" aria-live="polite">
                                     <p className="hint-walk-text">
-                                      {frames[Math.min(walkIndex, frames.length - 1)]?.text}
+                                      <FormattedExplanation
+                                        text={frames[Math.min(walkIndex, frames.length - 1)]?.text ?? ''}
+                                      />
                                     </p>
                                     <div className="hint-walk-nav">
                                       <button
@@ -922,7 +925,9 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                                 {walking && frames.length > 0 ? (
                                   <div className="hint-walk scanner-walk-box" aria-live="polite">
                                     <p className="hint-walk-text">
-                                      {frames[Math.min(walkIndex, frames.length - 1)]?.text}
+                                      <FormattedExplanation
+                                        text={frames[Math.min(walkIndex, frames.length - 1)]?.text ?? ''}
+                                      />
                                     </p>
                                     <div className="hint-walk-nav">
                                       <button

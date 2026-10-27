@@ -16,6 +16,7 @@ import { useT, rich, Translator } from '../content/i18n';
 import { useLearnLocale } from './useLearnLocale';
 import { CheckIcon } from './Icons';
 import { StepExplanationView } from './StepExplanationView';
+import { FormattedExplanation } from './FormattedExplanation';
 import { explainStep } from '../content/stepExplainer';
 
 const KEY_SEEN = 'sudokui-cellkey-seen';
@@ -228,7 +229,7 @@ export function HintPanel({ onLearn, onReport }: { onLearn: (tech: Tech) => void
         <div className="hint-body">
           {frame ? (
             <div className="hint-walk" aria-live="polite">
-              <p className="hint-walk-text">{frame.text}</p>
+              <p className="hint-walk-text"><FormattedExplanation text={frame.text} /></p>
               <div className="hint-walk-nav">
                 <button
                   className="ghost"

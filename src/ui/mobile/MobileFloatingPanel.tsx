@@ -6,6 +6,7 @@ import { usePractice } from '../../state/practiceStore';
 import { useT } from '../../content/i18n';
 import { TECHS, Tech } from '../../engine/ratings';
 import { walkFrames } from '../../engine/hintFrames';
+import { FormattedExplanation } from '../FormattedExplanation';
 import { PatternScannerPanel } from '../PatternScannerPanel';
 import { HintPanel, ChainPanel } from '../HintPanel';
 import { PracticePanel } from '../PracticePanel';
@@ -250,11 +251,15 @@ export function MobileFloatingPanel({
           <div className="mobile-compact-body">
             {/* Step or walk narration */}
             <p className="mobile-compact-description">
-              {walking && currentFrame
-                ? currentFrame.text
-                : selectedInstance
-                  ? selectedInstance.step.description
-                  : hint?.description}
+              <FormattedExplanation
+                text={
+                  walking && currentFrame
+                    ? currentFrame.text
+                    : selectedInstance
+                      ? selectedInstance.step.description
+                      : hint?.description ?? ''
+                }
+              />
             </p>
           </div>
 
@@ -266,14 +271,14 @@ export function MobileFloatingPanel({
                   type="button"
                   className="mobile-stepper-btn"
                   onClick={() => walkHint(-1)}
-                  disabled={walkIndex === 0}
+                  disabled={!walking}
                   aria-label={t('Previous frame')}
                 >
                   ◀
                 </button>
                 <span className="mobile-stepper-count">
                   {t('{i} of {n}', {
-                    i: Math.min(walkIndex, frames.length - 1) + 1,
+                    i: walking ? Math.min(walkIndex, frames.length - 1) + 1 : 0,
                     n: frames.length
                   })}
                 </span>
@@ -281,7 +286,7 @@ export function MobileFloatingPanel({
                   type="button"
                   className="mobile-stepper-btn"
                   onClick={() => walkHint(1)}
-                  disabled={walkIndex >= frames.length - 1}
+                  disabled={walking && walkIndex >= frames.length - 1}
                   aria-label={t('Next frame')}
                 >
                   ▶

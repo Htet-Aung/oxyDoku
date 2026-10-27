@@ -32,6 +32,11 @@
   --danger-text: #f07a86;
   --scrollbar-thumb: rgba(154, 163, 181, 0.35);
   --scrollbar-thumb-hover: rgba(154, 163, 181, 0.6);
+  --hl-coord-r: #fb923c;
+  --hl-coord-c: #38bdf8;
+  --hl-coord-b: #a78bfa;
+  --hl-digit: #facc15;
+  --hl-coord-prefix: #9aa3b5;
 }
 
 :root[data-theme='light'],
@@ -57,6 +62,11 @@
   --danger-text: #b3263a;
   --scrollbar-thumb: rgba(93, 101, 119, 0.35);
   --scrollbar-thumb-hover: rgba(93, 101, 119, 0.6);
+  --hl-coord-r: #c2410c;
+  --hl-coord-c: #0369a1;
+  --hl-coord-b: #6d28d9;
+  --hl-digit: #a16207;
+  --hl-coord-prefix: #5d6577;
 }
 
 /* Rosé: daylight's contrast rules with a pink wash and red digits.
@@ -80,6 +90,11 @@
   --peer-bg: rgba(212, 86, 138, 0.07);
   --scrollbar-thumb: rgba(114, 90, 103, 0.35);
   --scrollbar-thumb-hover: rgba(114, 90, 103, 0.6);
+  --hl-coord-r: #b91c1c;
+  --hl-coord-c: #0e7490;
+  --hl-coord-b: #7e22ce;
+  --hl-digit: #a16207;
+  --hl-coord-prefix: #725a67;
 }
 
 /* Forest: rosé's counterpart — deep pine greens with brass digits, built on
@@ -104,6 +119,11 @@
   --peer-bg: rgba(201, 150, 61, 0.08);
   --scrollbar-thumb: rgba(150, 168, 154, 0.35);
   --scrollbar-thumb-hover: rgba(150, 168, 154, 0.6);
+  --hl-coord-r: #f97316;
+  --hl-coord-c: #38bdf8;
+  --hl-coord-b: #c084fc;
+  --hl-digit: #facc15;
+  --hl-coord-prefix: #96a89a;
 }
 
 /* Cyberpunk: high-tech darkness with neon cyan, electric yellow givens and magenta accents. */
@@ -129,6 +149,11 @@
   --danger-text: #ff0055;
   --scrollbar-thumb: rgba(0, 240, 255, 0.35);
   --scrollbar-thumb-hover: rgba(0, 240, 255, 0.6);
+  --hl-coord-r: #ff007f;
+  --hl-coord-c: #00f0ff;
+  --hl-coord-b: #b026ff;
+  --hl-digit: #ffe600;
+  --hl-coord-prefix: #8b9bb4;
 }
 
 /* Chess: classic high-contrast black & white tournament chessboard with Check Red accents */
@@ -155,6 +180,11 @@
   --danger-text: #ef4444;
   --scrollbar-thumb: rgba(160, 165, 175, 0.35);
   --scrollbar-thumb-hover: rgba(220, 225, 235, 0.6);
+  --hl-coord-r: #ef4444;
+  --hl-coord-c: #38bdf8;
+  --hl-coord-b: #a855f7;
+  --hl-digit: #fbbf24;
+  --hl-coord-prefix: #959caa;
 }
 
 /* Light squares of the chess board (White squares) */
@@ -263,6 +293,11 @@
   --danger-text: #ff6b6b;
   --scrollbar-thumb: rgba(0, 229, 188, 0.35);
   --scrollbar-thumb-hover: rgba(0, 229, 188, 0.6);
+  --hl-coord-r: #fb923c;
+  --hl-coord-c: #00e5bc;
+  --hl-coord-b: #a78bfa;
+  --hl-digit: #facc15;
+  --hl-coord-prefix: #7ea1b8;
 }
 
 /* Midnight: pure pitch-black AMOLED with starlight silver and indigo glow. */
@@ -288,6 +323,11 @@
   --danger-text: #f87171;
   --scrollbar-thumb: rgba(148, 163, 184, 0.35);
   --scrollbar-thumb-hover: rgba(148, 163, 184, 0.6);
+  --hl-coord-r: #fb7185;
+  --hl-coord-c: #38bdf8;
+  --hl-coord-b: #a78bfa;
+  --hl-digit: #facc15;
+  --hl-coord-prefix: #94a3b8;
 }
 
 /* Terminal: retro phosphor green on dark CRT matrix glass. */
@@ -313,6 +353,62 @@
   --danger-text: #ef4444;
   --scrollbar-thumb: rgba(34, 197, 94, 0.35);
   --scrollbar-thumb-hover: rgba(34, 197, 94, 0.6);
+  --hl-coord-r: #fbbf24;
+  --hl-coord-c: #38bdf8;
+  --hl-coord-b: #c084fc;
+  --hl-digit: #86efac;
+  --hl-coord-prefix: #2f855a;
+}
+
+/* ==========================================================================
+   Sudoku Explanation Token Color Coding (Context-Aware Coordinates & Digits)
+   ========================================================================== */
+.coord-cell {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.coord-prefix {
+  color: var(--hl-coord-prefix);
+  font-weight: 500;
+  opacity: 0.85;
+}
+.hl-num {
+  font-weight: 700;
+  display: inline;
+}
+.hl-row {
+  color: var(--hl-coord-r);
+}
+.hl-col {
+  color: var(--hl-coord-c);
+}
+.hl-box {
+  color: var(--hl-coord-b);
+}
+.hl-digit {
+  color: var(--hl-digit);
+  font-weight: 700;
+}
+.hl-digit-set {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* Retro CRT phosphor glow for colored numbers */
+:root[data-theme='retro'] .hl-digit {
+  text-shadow: 0 0 6px rgba(134, 239, 172, 0.45);
+}
+:root[data-theme='retro'] .hl-row {
+  text-shadow: 0 0 6px rgba(251, 191, 36, 0.45);
+}
+:root[data-theme='retro'] .hl-col {
+  text-shadow: 0 0 6px rgba(56, 189, 248, 0.45);
+}
+:root[data-theme='retro'] .hl-box {
+  text-shadow: 0 0 6px rgba(192, 132, 252, 0.45);
 }
 
 * {

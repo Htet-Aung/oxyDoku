@@ -1457,7 +1457,12 @@ export const useGame = create<GameStore>()(
         if (!s.hint) return;
         const frames = walkFrames(s.hint).length;
         if (s.hintStage !== 'walk') {
+          if (delta === -1) return;
           set({ hintStage: 'walk', walkIndex: 0 });
+          return;
+        }
+        if (delta === -1 && s.walkIndex === 0) {
+          set({ hintStage: 'full' });
           return;
         }
         const next = Math.max(0, Math.min(frames - 1, s.walkIndex + (delta ?? 0)));

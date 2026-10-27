@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Step } from '../engine/steps';
 import { explainStep, StepExplanation } from '../content/stepExplainer';
+import { FormattedExplanation } from './FormattedExplanation';
 import { useT } from '../content/i18n';
 import {
   LightbulbIcon,
@@ -41,7 +42,7 @@ export function StepExplanationView({
           </span>
           <strong className="synopsis-title">{exp.techName}</strong>
         </div>
-        <p className="synopsis-text">{exp.synopsis}</p>
+        <p className="synopsis-text"><FormattedExplanation text={exp.synopsis} /></p>
       </div>
 
       {/* Toggle button if collapsible */}
@@ -68,7 +69,7 @@ export function StepExplanationView({
               <InfoIcon size={14} />
               <strong>{t('Core Principle')}</strong>
             </div>
-            <p className="principle-text">{exp.whyItWorks.corePrinciple}</p>
+            <p className="principle-text"><FormattedExplanation text={exp.whyItWorks.corePrinciple} /></p>
           </div>
 
           {/* 3. Case Analysis (when available, e.g. Wings, Turbots) */}
@@ -82,15 +83,15 @@ export function StepExplanationView({
                       <span className="case-badge">{t('Branch {n}', { n: i + 1 })}</span>
                       <strong className="case-title">{c.title}</strong>
                     </div>
-                    <p className="case-premise">{c.premise}</p>
+                    <p className="case-premise"><FormattedExplanation text={c.premise} /></p>
                     <ul className="case-chain">
                       {c.chain.map((link, j) => (
-                        <li key={j}>{link}</li>
+                        <li key={j}><FormattedExplanation text={link} /></li>
                       ))}
                     </ul>
                     <div className="case-conclusion">
                       <CheckIcon size={12} />
-                      <span>{c.conclusion}</span>
+                      <span><FormattedExplanation text={c.conclusion} /></span>
                     </div>
                   </div>
                 ))}
@@ -104,7 +105,7 @@ export function StepExplanationView({
               <h4 className="explanation-section-title">{t('How the Logic Works')}</h4>
               <ul className="deduction-steps-list">
                 {exp.whyItWorks.deductionSteps.map((s, i) => (
-                  <li key={i}>{s}</li>
+                  <li key={i}><FormattedExplanation text={s} /></li>
                 ))}
               </ul>
             </div>
@@ -125,7 +126,7 @@ export function StepExplanationView({
                       {d.action === 'remove' ? `−${d.digit}` : `+${d.digit}`}
                     </span>
                     <strong className="elim-cell-name">{d.cellStr}:</strong>
-                    <span className="elim-reason-text">{d.reason}</span>
+                    <span className="elim-reason-text"><FormattedExplanation text={d.reason} /></span>
                   </div>
                 ))}
               </div>
@@ -140,7 +141,7 @@ export function StepExplanationView({
                 {exp.structure.components.map((comp, i) => (
                   <div key={i} className={`component-tag role-${comp.role}`}>
                     <span className="comp-label">{comp.label}:</span>
-                    <span className="comp-text">{comp.text}</span>
+                    <span className="comp-text"><FormattedExplanation text={comp.text} /></span>
                   </div>
                 ))}
               </div>
