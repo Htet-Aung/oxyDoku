@@ -4,7 +4,7 @@ import { useGame } from '../../state/gameStore';
 import { useSettings } from '../../state/settings';
 import { usePractice } from '../../state/practiceStore';
 import { useT } from '../../content/i18n';
-import { TECHS, Tech } from '../../engine/ratings';
+import { TECHS, Tech, pickOf } from '../../engine/ratings';
 import { walkFrames } from '../../engine/hintFrames';
 import { FormattedExplanation } from '../FormattedExplanation';
 import { PatternScannerPanel } from '../PatternScannerPanel';
@@ -162,6 +162,11 @@ export function MobileFloatingPanel({
                   ? t.tech(selectedInstance.tech)
                   : t('Patterns ({n})', { n: scanResult?.instances.length ?? 0 })}
               </span>
+              {info && !selectedInstance && (
+                <span className="mobile-floating-rating-pill">
+                  {t.level(pickOf(info.level, info.score))} · {info.score}
+                </span>
+              )}
             </>
           )}
           {activeTab === 'hint' && (

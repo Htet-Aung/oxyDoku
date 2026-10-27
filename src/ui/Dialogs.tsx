@@ -13,7 +13,8 @@ import {
   CheckIcon,
   CloseIcon,
   GearIcon,
-  ExternalLinkIcon
+  ExternalLinkIcon,
+  MicroscopeIcon
 } from './Icons';
 // Game dialogs: new game, practice (full technique catalogue), import/export,
 // generation progress and victory — plus useNewGame, the hook that ties the
@@ -26,7 +27,8 @@ import {
   contractGrid,
   hasManualMarks,
   markSlip,
-  stepMatchesSolution
+  stepMatchesSolution,
+  validatePuzzle
 } from '../state/gameStore';
 import { findAllSteps } from '../engine/humanSolver';
 import { Step } from '../engine/steps';
@@ -41,7 +43,7 @@ import { useT, translator, msg, rich, Translator } from '../content/i18n';
 import { shareUrl, sudokuWikiUrl, techsWorthNaming, clockOf } from '../content/share';
 import { parsePencilGrid, looksLikeGrid, formatPencilGrid } from '../content/textGrid';
 import { puzzleFromLink } from '../content/importLinks';
-import { looksLikePositionImport } from '../content/sudokuExchangeImport';
+import { looksLikePositionImport, parseAndValidatePositionImport } from '../content/sudokuExchangeImport';
 import type { LinkRefusal, LinkSource, VariantMark } from '../content/importLinks';
 import { fasterThan, dailyNumber, localDateKey, LATE_DAYS } from '../content/dailies';
 import { useDailyStats, SubmitOutcome } from '../state/dailyStats';
@@ -934,15 +936,69 @@ function refusalText(r: LinkRefusal, t: Translator): string {
   }
 }
 
-export function ImportDialog({ onClose, onConfirmChange }: { onClose: () => void; onConfirmChange?: (action: () => void) => void }) {
+export function ImportDialog({
+  onClose,
+  onConfirmChange,
+  onScan
+}: {
+  onClose: () => void;
+  onConfirmChange?: (action: () => void) => void;
+  onScan?: () => void;
+}) {
   const importPuzzle = useGame((s) => s.importPuzzle);
   const importText = useGame((s) => s.importText);
   const importPositionPayload = useGame((s) => s.importPositionPayload);
   const [text, setText] = useState('');
   const [error, setError] = useState('');
+  const [previewRating, setPreviewRating] = useState<{ score: number; level: Level } | null>(null);
   const t = useT();
 
-  const doImport = () => {
+  useEffect(() => {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      setPreviewRating(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      try {
+        if (looksLikePositionImport(trimmed)) {
+          const res = parseAndValidatePositionImport(trimmed);
+          if (res.ok) {
+            setPreviewRating({ score: res.score, level: res.level });
+            return;
+          }
+        }
+        const pos = parsePencilGrid(trimmed);
+        if (pos) {
+          const givens = pos.values.map((v, i) => (v && pos.given[i] ? String(v) : '.')).join('');
+          const v = validatePuzzle(givens);
+          if (v.ok) {
+            setPreviewRating({ score: v.score, level: v.level });
+            return;
+          }
+        }
+        const link = puzzleFromLink(trimmed);
+        if (link && link.ok) {
+          const v = validatePuzzle(link.puzzle);
+          if (v.ok) {
+            setPreviewRating({ score: v.score, level: v.level });
+            return;
+          }
+        }
+      } catch {
+        // Ignore preview rating errors while user is still typing
+      }
+      setPreviewRating(null);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [text]);
+
+  const doImport = (scan = false) => {
+    const onFinished = () => {
+      onClose();
+      if (scan && onScan) onScan();
+    };
+
     // a position drawn as text (src/content/textGrid.ts): a pencil-mark
     // grid, a HoDoKu library string, or the 81 characters with their
     // candidates; its candidates come along as centre marks
@@ -950,7 +1006,7 @@ export function ImportDialog({ onClose, onConfirmChange }: { onClose: () => void
       const applyPayload = () => {
         const res = importPositionPayload(text, { force: true });
         if (!res.ok) setError(res.reason);
-        else onClose();
+        else onFinished();
       };
       if (onConfirmChange) onConfirmChange(applyPayload);
       else applyPayload();
@@ -961,7 +1017,7 @@ export function ImportDialog({ onClose, onConfirmChange }: { onClose: () => void
       const applyText = () => {
         const reason = importText(position);
         if (reason) setError(reason);
-        else onClose();
+        else onFinished();
       };
       if (onConfirmChange) onConfirmChange(applyText);
       else applyText();
@@ -985,7 +1041,7 @@ export function ImportDialog({ onClose, onConfirmChange }: { onClose: () => void
     const applyPuzzle = () => {
       const reason = importPuzzle(link.puzzle, link.source && t(SOURCE_NAMES[link.source]));
       if (reason) setError(reason);
-      else onClose();
+      else onFinished();
     };
     if (onConfirmChange) onConfirmChange(applyPuzzle);
     else applyPuzzle();
@@ -1008,8 +1064,24 @@ export function ImportDialog({ onClose, onConfirmChange }: { onClose: () => void
         placeholder="..3.2.6..9..3.5..1..18.64....81.29..7.......8..67.82....26.95..8..2.3..9..5.1.3.."
       />
       {error && <p className="dialog-error">{error}</p>}
+      {previewRating && (
+        <div className="import-rating-preview">
+          <span className="status-dot" aria-hidden="true">●</span>
+          <strong>
+            {t('{level} level · HoDoKu rating {score}', {
+              level: t.level(pickOf(previewRating.level, previewRating.score)),
+              score: previewRating.score
+            })}
+          </strong>
+        </div>
+      )}
       <div className="hint-actions">
-        <button onClick={doImport}>{t('Load puzzle')}</button>
+        <button onClick={() => doImport(true)}>
+          <MicroscopeIcon size={14} /> {t('Import & scan patterns')}
+        </button>
+        <button className="ghost" onClick={() => doImport(false)}>
+          {t('Load puzzle')}
+        </button>
       </div>
       <h4 className="setting-group">{t('Scan a photo')}</h4>
       <ScanControls onDone={onClose} onConfirmChange={onConfirmChange} />

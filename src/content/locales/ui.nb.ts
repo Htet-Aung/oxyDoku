@@ -987,7 +987,12 @@ const ui: Dictionary = {
   "Extreme tier: requires forcing chains, nets, or high-complexity moves, or any puzzle scoring over 1800.": "Nivå Ekstrem: krever tvingende kjeder, nett eller svært komplekse trekk, eller oppgaver med over 1800 poeng.",
   "Nightmare: extreme-tier monster puzzle scoring over 3000.": "Mareritt: monsteroppgave på ekstreme nivåer med over 3000 poeng.",
   "A puzzle’s level is set by the hardest technique it requires, with total score capped at the level limit.": "Et sudokunivå bestemmes av den vanskeligste teknikken det krever, med samlet poengsum begrenset til nivåets tak.",
-  "{level} level (hardest technique required) · HoDoKu rating {score} (limit {limit}). Click for full rating guide.": "{level}-nivå (vanskeligste teknikk som kreves) · HoDoKu-poengsum {score} (grense {limit}). Klikk for full vurderingsveiledning."
+  "{level} level (hardest technique required) · HoDoKu rating {score} (limit {limit}). Click for full rating guide.": "{level}-nivå (vanskeligste teknikk som kreves) · HoDoKu-poengsum {score} (grense {limit}). Klikk for full vurderingsveiledning.",
+  "Given: {n}/17+": "Gitte: {n}/17+",
+  "Checking…": "Sjekker…",
+  "Check & scan patterns": "Sjekk og skann mønstre",
+  "{level} level · HoDoKu rating {score}": "{level}-nivå · HoDoKu-poengsum {score}",
+  "Unique solution": "Entydig løsning"
 };
 
 export default ui;

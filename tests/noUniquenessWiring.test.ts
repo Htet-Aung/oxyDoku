@@ -139,7 +139,7 @@ describe('the credit of a move', () => {
       useSettings.getState().set({ useUniqueness });
       StandInWorker.sent = [];
       useGame.getState().select([cell], false);
-      useGame.getState().input(digit, 'corner');
+      useGame.getState().input(digit, 'center');
       expect(useGame.getState().cells[cell].excluded & bit(digit)).not.toBe(0);
       await new Promise((r) => setTimeout(r, 0));
       expect(StandInWorker.sent).toEqual([expect.objectContaining({ kind: 'justify', move: { cell, digit, placed: false }, noUniqueness: !useUniqueness })]);

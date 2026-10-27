@@ -3,7 +3,7 @@ import { usePatternScanner, ScanGrouping } from '../state/scannerStore';
 import { useGame } from '../state/gameStore';
 import { useSettings } from '../state/settings';
 import { useT, Translator, rich } from '../content/i18n';
-import { TECHS, Tech, Category } from '../engine/ratings';
+import { TECHS, Tech, Category, pickOf } from '../engine/ratings';
 import { cellName } from '../engine/board';
 import { PatternInstance, TechScanSummary } from '../engine/scanner';
 import {
@@ -91,6 +91,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
   const cells = useGame((s) => s.cells);
   const autoCandidates = useGame((s) => s.autoCandidates);
   const markContract = useGame((s) => s.markContract);
+  const info = useGame((s) => s.info);
 
   useEffect(() => {
     checkStaleness();
@@ -209,6 +210,17 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
           {totalInstances > 0 && (
             <span className="scanner-total-pill">
               {t(totalInstances === 1 ? '{n} pattern' : '{n} patterns', { n: totalInstances })}
+            </span>
+          )}
+          {info && (
+            <span
+              className="scanner-rating-pill"
+              title={t('{level} level · HoDoKu rating {score}', {
+                level: t.level(pickOf(info.level, info.score)),
+                score: info.score
+              })}
+            >
+              {t.level(pickOf(info.level, info.score))} · {info.score}
             </span>
           )}
         </div>

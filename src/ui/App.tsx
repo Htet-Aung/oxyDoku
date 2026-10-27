@@ -54,7 +54,8 @@ import {
   SparklesIcon,
   TerminalIcon,
   InfoIcon,
-  OxyDokuLogoIcon
+  OxyDokuLogoIcon,
+  MicroscopeIcon
 } from './Icons';
 import { PracticePanel } from './PracticePanel';
 import { usePractice } from '../state/practiceStore';
@@ -366,6 +367,34 @@ export default function App() {
     return () => window.removeEventListener('click', onClick);
   }, [showHeaderMenu, isMobile]);
   const [customError, setCustomError] = useState<string | null>(null);
+  const customCells = useGame((s) => (s.custom ? s.cells : null));
+  const [customRating, setCustomRating] = useState<{ score: number; level: Level } | null>(null);
+
+  useEffect(() => {
+    if (!custom || !customCells) {
+      setCustomRating(null);
+      return;
+    }
+    const clues = customCells.filter((c) => c.value > 0).length;
+    if (clues < 17) {
+      setCustomRating(null);
+      return;
+    }
+    const puzzle = customCells.map((c) => (c.value ? String(c.value) : '.')).join('');
+    const timer = setTimeout(() => {
+      try {
+        const v = validatePuzzle(puzzle);
+        if (v.ok) {
+          setCustomRating({ score: v.score, level: v.level });
+        } else {
+          setCustomRating(null);
+        }
+      } catch {
+        setCustomRating(null);
+      }
+    }, 180);
+    return () => clearTimeout(timer);
+  }, [custom, customCells]);
   // the report dialog, with the hint it is about when it came from "Looks wrong?"
   const [report, setReport] = useState<{ kind: ReportKind; hint?: Step } | null>(null);
   const startPracticeMode = (tech: Tech | 'mixed') => {
@@ -870,6 +899,27 @@ export default function App() {
         }
       }
       switch (e.code) {
+        case 'KeyX':
+          if (!mod) {
+            e.preventDefault();
+            const cur = useGame.getState().mode;
+            setMode(cur === 'corner' ? 'digit' : 'corner');
+          }
+          break;
+        case 'KeyC':
+          if (!mod) {
+            e.preventDefault();
+            const cur = useGame.getState().mode;
+            setMode(cur === 'center' ? 'digit' : 'center');
+          }
+          break;
+        case 'KeyV':
+          if (!mod) {
+            e.preventDefault();
+            const cur = useGame.getState().mode;
+            setMode(cur === 'color' ? 'digit' : 'color');
+          }
+          break;
         case 'Backspace':
         case 'Delete':
           if (useGame.getState().chain) {
@@ -1013,19 +1063,27 @@ export default function App() {
                   className="board-status-badge mobile-badge"
                   onClick={() => openLearn({ tab: 'rating' })}
                   title={
-                    info
+                    custom && customRating
                       ? t('{level} level (hardest technique required) · HoDoKu rating {score} (limit {limit}). Click for full rating guide.', {
-                          level: t.level(pickOf(info.level, info.score)),
-                          score: info.score,
-                          limit: LEVEL_MAX_SCORE[info.level] === 2147483647 ? t('no limit||the scores of Extreme') : LEVEL_MAX_SCORE[info.level]
+                          level: t.level(pickOf(customRating.level, customRating.score)),
+                          score: customRating.score,
+                          limit: LEVEL_MAX_SCORE[customRating.level] === 2147483647 ? t('no limit||the scores of Extreme') : LEVEL_MAX_SCORE[customRating.level]
                         })
-                      : t('How the HoDoKu rating works, in full')
+                      : info
+                        ? t('{level} level (hardest technique required) · HoDoKu rating {score} (limit {limit}). Click for full rating guide.', {
+                            level: t.level(pickOf(info.level, info.score)),
+                            score: info.score,
+                            limit: LEVEL_MAX_SCORE[info.level] === 2147483647 ? t('no limit||the scores of Extreme') : LEVEL_MAX_SCORE[info.level]
+                          })
+                        : t('How the HoDoKu rating works, in full')
                   }
                 >
                   <span className="status-dot" aria-hidden="true">●</span>
                   <span className="status-text">
                     {custom
-                      ? t('Custom')
+                      ? customRating
+                        ? `${t('Custom')} · ${t.level(pickOf(customRating.level, customRating.score))} · ${customRating.score}`
+                        : `${t('Custom')}${givenCount > 0 ? ` · ${givenCount}/17+` : ''}`
                       : info
                         ? `${t.level(pickOf(info.level, info.score))} · ${info.score}`
                         : ''}
@@ -1142,6 +1200,56 @@ export default function App() {
               {showPoodle && (!paused || won) && <Poodle />}
             </div>
 
+            {custom && (
+              <div className="mobile-custom-bar">
+                {customRating ? (
+                  <div className="mobile-custom-rating">
+                    <span className="status-dot" aria-hidden="true">●</span>
+                    <strong>{t.level(pickOf(customRating.level, customRating.score))} · {customRating.score}</strong>
+                  </div>
+                ) : (
+                  <span className="mobile-custom-clues">
+                    {givenCount < 17 ? t('Given: {n}/17+', { n: givenCount }) : t('Checking…')}
+                  </span>
+                )}
+                {customError && <p className="dialog-error mobile-custom-error">{customError}</p>}
+                <div className="mobile-custom-actions">
+                  <button
+                    type="button"
+                    className="mobile-custom-action-btn primary"
+                    onClick={() => {
+                      const err = finishCustomEntry();
+                      setCustomError(err);
+                      if (!err) {
+                        setFloatingTab('patterns');
+                        openScanner({ autoScan: true });
+                      }
+                    }}
+                  >
+                    <MicroscopeIcon size={14} /> {t('Check & scan patterns')}
+                  </button>
+                  <button
+                    type="button"
+                    className="mobile-custom-action-btn"
+                    onClick={() => setCustomError(finishCustomEntry())}
+                  >
+                    <CheckIcon size={14} /> {t('Check & play')}
+                  </button>
+                  <button
+                    type="button"
+                    className="mobile-custom-action-btn ghost"
+                    onClick={() => {
+                      setCustomError(null);
+                      cancelCustomEntry();
+                      if (!useGame.getState().info) start({ kind: 'level', level: 'Easy' });
+                    }}
+                  >
+                    {t('Cancel')}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <MobileNumpad />
 
             <MobileFloatingPanel
@@ -1170,6 +1278,13 @@ export default function App() {
               if (floatingTab === 'patterns') {
                 setFloatingTab(null);
                 closeScanner();
+              } else if (custom) {
+                const err = finishCustomEntry();
+                setCustomError(err);
+                if (!err) {
+                  setFloatingTab('patterns');
+                  openScanner({ autoScan: true });
+                }
               } else {
                 setFloatingTab('patterns');
                 openScanner({ autoScan: true });
@@ -1236,19 +1351,27 @@ export default function App() {
               className="board-status-badge"
               onClick={() => openLearn({ tab: 'rating' })}
               title={
-                info
+                custom && customRating
                   ? t('{level} level (hardest technique required) · HoDoKu rating {score} (limit {limit}). Click for full rating guide.', {
-                      level: t.level(pickOf(info.level, info.score)),
-                      score: info.score,
-                      limit: LEVEL_MAX_SCORE[info.level] === 2147483647 ? t('no limit||the scores of Extreme') : LEVEL_MAX_SCORE[info.level]
+                      level: t.level(pickOf(customRating.level, customRating.score)),
+                      score: customRating.score,
+                      limit: LEVEL_MAX_SCORE[customRating.level] === 2147483647 ? t('no limit||the scores of Extreme') : LEVEL_MAX_SCORE[customRating.level]
                     })
-                  : t('How the HoDoKu rating works, in full')
+                  : info
+                    ? t('{level} level (hardest technique required) · HoDoKu rating {score} (limit {limit}). Click for full rating guide.', {
+                        level: t.level(pickOf(info.level, info.score)),
+                        score: info.score,
+                        limit: LEVEL_MAX_SCORE[info.level] === 2147483647 ? t('no limit||the scores of Extreme') : LEVEL_MAX_SCORE[info.level]
+                      })
+                    : t('How the HoDoKu rating works, in full')
               }
             >
               <span className="status-dot" aria-hidden="true">●</span>
               <span className="status-text">
                 {custom
-                  ? t('Custom')
+                  ? customRating
+                    ? `${t('Custom')} · ${t.level(pickOf(customRating.level, customRating.score))} · ${customRating.score}`
+                    : `${t('Custom')}${givenCount > 0 ? ` · ${givenCount}/17+` : ''}`
                   : info
                     ? `${t.level(pickOf(info.level, info.score))} · ${info.score}`
                     : ''}
@@ -1439,9 +1562,15 @@ export default function App() {
           <Controls
             onShowSteps={info && !custom ? () => setDialog('steps') : undefined}
             onScan={
-              info && !custom
+              info || custom
                 ? () => {
-                    if (scannerOpen) {
+                    if (custom) {
+                      const err = finishCustomEntry();
+                      setCustomError(err);
+                      if (!err) {
+                        openScanner({ autoScan: true });
+                      }
+                    } else if (scannerOpen) {
                       usePatternScanner.getState().runScan();
                     } else {
                       openScanner({ autoScan: true });
@@ -1536,8 +1665,34 @@ export default function App() {
                   )}
                 </p>
                 {customError && <p className="dialog-error">{customError}</p>}
+                {customRating ? (
+                  <div className="custom-rating-badge">
+                    <span className="status-dot" aria-hidden="true">●</span>
+                    <strong>
+                      {t('{level} level · HoDoKu rating {score}', {
+                        level: t.level(pickOf(customRating.level, customRating.score)),
+                        score: customRating.score
+                      })}
+                    </strong>
+                    <span className="custom-unique-check">
+                      <CheckIcon size={13} /> {t('Unique solution')}
+                    </span>
+                  </div>
+                ) : null}
                 <div className="hint-actions">
                   <button
+                    onClick={() => {
+                      const err = finishCustomEntry();
+                      setCustomError(err);
+                      if (!err) {
+                        openScanner({ autoScan: true });
+                      }
+                    }}
+                  >
+                    <MicroscopeIcon size={14} /> {t('Check & scan patterns')}
+                  </button>
+                  <button
+                    className="ghost"
                     onClick={() => setCustomError(finishCustomEntry())}
                   >
                     <CheckIcon size={14} /> {t('Check & play')}
@@ -1812,7 +1967,16 @@ export default function App() {
           />
         </Suspense>
       )}
-      {dialog === 'io' && <ImportDialog onClose={() => setDialog('none')} onConfirmChange={confirmBoardChange} />}
+      {dialog === 'io' && (
+        <ImportDialog
+          onClose={() => setDialog('none')}
+          onConfirmChange={confirmBoardChange}
+          onScan={() => {
+            setDialog('none');
+            openScanner({ autoScan: true });
+          }}
+        />
+      )}
       {dialog === 'share' && <ShareDialog onClose={() => setDialog('none')} />}
       {dialog === 'steps' && <SolutionPathDialog onClose={() => setDialog('none')} />}
       {welcome && (

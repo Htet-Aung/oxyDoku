@@ -40,10 +40,10 @@ const BUTTONS: { name: string; icon: React.ReactNode; text: string; assist?: tru
 const textOf = (name: string) => BUTTONS.find((b) => b.name === name)!.text;
 
 const MODES: { id: EntryMode; label: string; keyHint?: string }[] = [
-  { id: 'digit', label: msg('Digit') },
-  { id: 'corner', label: msg('Corner'), keyHint: 'Shift' },
-  { id: 'center', label: msg('Centre'), keyHint: 'Ctrl' },
-  { id: 'color', label: msg('Colour'), keyHint: 'Z' }
+  { id: 'digit', label: msg('Digit'), keyHint: 'Z' },
+  { id: 'corner', label: msg('Corner'), keyHint: 'X' },
+  { id: 'center', label: msg('Centre'), keyHint: 'C' },
+  { id: 'color', label: msg('Colour'), keyHint: 'V' }
 ];
 
 export function Controls({
@@ -124,6 +124,21 @@ export function Controls({
 
   return (
     <div className="controls analysis-controls">
+      {/* Primary Input Mode Bar (Digit · Corner · Centre · Colour) */}
+      <div className="analysis-mode-bar">
+        {MODES.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            className={`mode-pill ${effectiveMode === m.id ? 'active' : ''}`}
+            onClick={() => setMode(m.id)}
+            title={m.keyHint ? `${t(m.label)} (${m.keyHint})` : t(m.label)}
+          >
+            {t(m.label)} {m.keyHint && <span className="key-hint">({m.keyHint})</span>}
+          </button>
+        ))}
+      </div>
+
       {/* Primary Action Bar */}
       <div className="analysis-action-bar">
         {onScan && (

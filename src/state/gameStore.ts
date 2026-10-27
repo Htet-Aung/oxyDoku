@@ -937,8 +937,20 @@ export const useGame = create<GameStore>()(
           }
         } else if (mode === 'corner' || mode === 'center') {
           const editable = targets.filter((i) => !cells[i].given && !cells[i].value);
-          if (s.autoCandidates) {
-            // auto mode: pencil input strikes a candidate through (exclusion),
+          if (mode === 'corner') {
+            // Corner marks are Snyder/positional notation — fully independent of auto-candidates
+            const allHave =
+              editable.length > 0 && editable.every((i) => cells[i].corner & bit(digit));
+            for (const i of editable) {
+              if (allHave) {
+                cells[i].corner &= ~bit(digit);
+              } else {
+                cells[i].corner |= bit(digit);
+              }
+              changed = true;
+            }
+          } else if (s.autoCandidates) {
+            // center mode in auto mode: strikes a candidate through (exclusion),
             // pressing again restores it
             const eg = engineGrid(cells);
             const relevant = editable.filter(
@@ -960,19 +972,18 @@ export const useGame = create<GameStore>()(
               changed = true;
             }
           } else {
-            const key = mode;
             const allHave =
-              editable.length > 0 && editable.every((i) => cells[i][key] & bit(digit));
+              editable.length > 0 && editable.every((i) => cells[i].center & bit(digit));
             for (const i of editable) {
               if (allHave) {
-                cells[i][key] &= ~bit(digit);
+                cells[i].center &= ~bit(digit);
                 // under the exhaustive contract a mark taken away is a
                 // candidate removed; otherwise marks are notes
                 if (sol && s.markContract === 'exhaustive' && !((cells[i].corner | cells[i].center) & bit(digit))) {
                   if (Number(sol[i]) === digit) wrong++;
                   else moves.push({ cell: i, digit, placed: false });
                 }
-              } else cells[i][key] |= bit(digit);
+              } else cells[i].center |= bit(digit);
               changed = true;
             }
           }
@@ -1027,7 +1038,14 @@ export const useGame = create<GameStore>()(
               changed = true;
             }
           }
-        } else if (mode === 'corner' || mode === 'center') {
+        } else if (mode === 'corner') {
+          for (const i of targets) {
+            if (cells[i].corner) {
+              cells[i].corner = 0;
+              changed = true;
+            }
+          }
+        } else if (mode === 'center') {
           if (s.autoCandidates) {
             // restore struck-through candidates
             for (const i of targets) {
@@ -1037,10 +1055,9 @@ export const useGame = create<GameStore>()(
               }
             }
           } else {
-            const key = mode;
             for (const i of targets) {
-              if (cells[i][key]) {
-                cells[i][key] = 0;
+              if (cells[i].center) {
+                cells[i].center = 0;
                 changed = true;
               }
             }
@@ -1307,17 +1324,30 @@ export const useGame = create<GameStore>()(
               (i) => !cells[i].given && !cells[i].value
             );
         let changed = 0;
-        for (const i of targets) {
-          const c = cells[i];
-          if (!c.corner && !c.center) continue;
-          [c.corner, c.center] = [c.center, c.corner];
-          changed++;
+        let turnAutoOff = false;
+        if (s.autoCandidates) {
+          const eg = engineGrid(cells);
+          for (const i of targets) {
+            const c = cells[i];
+            if (!c.center) c.center = eg.cands[i];
+            [c.corner, c.center] = [c.center, c.corner];
+            changed++;
+          }
+          turnAutoOff = true;
+        } else {
+          for (const i of targets) {
+            const c = cells[i];
+            if (!c.corner && !c.center) continue;
+            [c.corner, c.center] = [c.center, c.corner];
+            changed++;
+          }
         }
         if (!changed) return;
         const t = translator();
         const vars = { n: changed };
         set({
           cells,
+          ...(turnAutoOff ? { autoCandidates: false } : {}),
           history: [...s.history, cloneCells(s.cells)],
           future: [],
           notice:

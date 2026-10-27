@@ -1238,6 +1238,20 @@ button.ghost.mini.accent:hover:not(:disabled) {
   width: 100%;
 }
 
+.analysis-mode-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.analysis-mode-bar .mode-pill {
+  flex: 1;
+  padding: 7px 6px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
 .analysis-action-bar {
   display: flex;
   gap: 8px;
@@ -2416,11 +2430,6 @@ textarea {
   outline: 1.5px solid var(--accent);
 }
 
-.path-row.path-crux {
-  background: var(--sel-bg);
-  outline: 1.5px solid var(--accent);
-}
-
 .path-jump {
   min-width: 52px;
   padding: 3px 8px;
@@ -2463,11 +2472,6 @@ textarea {
   color: var(--muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-}
-
-/* muted text fails on the tinted crux row */
-.path-crux .path-score {
-  color: var(--text);
 }
 
 /* lightweight confetti behind the victory dialog: 24 tinted squares fall
@@ -4330,6 +4334,80 @@ html:not([lang='en']) .zone-note {
   color: var(--muted);
 }
 
+.custom-rating-badge,
+.import-rating-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--btn-bg, rgba(127, 127, 127, 0.08));
+  border: 1px solid var(--border-subtle, rgba(127, 127, 127, 0.2));
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin: 6px 0;
+  color: var(--text);
+}
+
+.custom-unique-check {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-success, #2e7d32);
+  font-weight: 500;
+}
+
+.mobile-custom-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 4px 8px;
+  background: var(--panel, #ffffff);
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 8px;
+}
+
+.mobile-custom-rating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.mobile-custom-clues {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mobile-custom-error {
+  margin: 0;
+  font-size: 12px;
+}
+
+.mobile-custom-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.mobile-custom-action-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.mobile-custom-action-btn.primary {
+  background: var(--accent);
+  color: var(--accent-text);
+  border: none;
+}
+
 /* Learn is one place with two halves: the practice list and the theory.
    Both dialogs carry this switch at the top */
 .hub-tabs {
@@ -4389,6 +4467,19 @@ html:not([lang='en']) .zone-note {
   padding: 2px 7px;
   border-radius: 10px;
   margin-left: 4px;
+}
+
+.scanner-rating-pill,
+.mobile-floating-rating-pill {
+  background: var(--btn-bg, rgba(127, 127, 127, 0.12));
+  color: var(--text);
+  border: 1px solid var(--border-subtle, rgba(127, 127, 127, 0.2));
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  margin-left: 4px;
+  white-space: nowrap;
 }
 
 .scanner-head-actions {

@@ -940,27 +940,49 @@ describe('Phase 1.5 — Exact Position Import from Sudoku Exchange', () => {
       expect(useGame.getState().cells[0].corner).toBe(bit(4));
     });
 
-    it('period key shortcut (convertCornerToCenter) converts corner marks to centre marks', () => {
-      useGame.getState().select([0, 1], false);
+    it('convertMarks (S key) swaps corner and centre marks seamlessly', () => {
+      useGame.getState().select([0], false);
       useGame.getState().input(4, 'corner');
-      useGame.getState().input(8, 'corner');
+      useGame.getState().input(5, 'corner');
+      useGame.getState().input(6, 'corner');
+      useGame.getState().input(4, 'center');
+      useGame.getState().input(5, 'center');
 
-      expect(useGame.getState().cells[0].corner).toBe(bit(4) | bit(8));
-      expect(useGame.getState().cells[0].center).toBe(0);
+      expect(useGame.getState().cells[0].corner).toBe(bit(4) | bit(5) | bit(6));
+      expect(useGame.getState().cells[0].center).toBe(bit(4) | bit(5));
 
-      // Execute convertCornerToCenter
-      useGame.getState().convertCornerToCenter();
+      // Swap marks
+      useGame.getState().convertMarks();
 
+      const swapped = useGame.getState();
+      expect(swapped.cells[0].corner).toBe(bit(4) | bit(5));
+      expect(swapped.cells[0].center).toBe(bit(4) | bit(5) | bit(6));
+
+      // Swap back
+      useGame.getState().convertMarks();
+      const reverted = useGame.getState();
+      expect(reverted.cells[0].corner).toBe(bit(4) | bit(5) | bit(6));
+      expect(reverted.cells[0].center).toBe(bit(4) | bit(5));
+    });
+
+    it('corner marks can be entered independently while auto-candidates are on and swapping works', () => {
+      useGame.getState().select([0], false);
+      useGame.getState().toggleAutoCandidates();
+      expect(useGame.getState().autoCandidates).toBe(true);
+
+      // In corner mode, adding corner notes works and does not strike candidate exclusions
+      useGame.getState().setMode('corner');
+      useGame.getState().input(4);
+      useGame.getState().input(5);
+      expect(useGame.getState().cells[0].corner).toBe(bit(4) | bit(5));
+      expect(useGame.getState().cells[0].excluded).toBe(0);
+
+      // Swapping when autoCandidates is on materializes candidates to center and swaps with corner
+      useGame.getState().convertMarks();
       const state = useGame.getState();
-      expect(state.cells[0].corner).toBe(0);
-      expect(state.cells[0].center).toBe(bit(4) | bit(8));
-      expect(state.cells[1].corner).toBe(0);
-      expect(state.cells[1].center).toBe(bit(4) | bit(8));
-
-      // Undo reverts conversion
-      useGame.getState().undo();
-      expect(useGame.getState().cells[0].corner).toBe(bit(4) | bit(8));
-      expect(useGame.getState().cells[0].center).toBe(0);
+      expect(state.autoCandidates).toBe(false);
+      expect(state.cells[0].center).toBe(bit(4) | bit(5));
+      expect(state.cells[0].corner).not.toBe(0);
     });
   });
 

@@ -320,14 +320,23 @@ function renderMarks(
     return <>{union.map((d) => gridText(d, cell.corner ? (cell.corner & bit(d)) !== 0 : false))}</>;
   }
 
+  const centerFontSize =
+    centerDs.length <= 2
+      ? 20
+      : centerDs.length <= 4
+        ? 18
+        : centerDs.length <= 6
+          ? 15
+          : 13;
+
   const centerLine =
-    centerDs.length > 0 && centerDs.length <= 4 ? (
+    centerDs.length > 0 ? (
       <text
         key="cl"
         x={x + SIZE / 2}
-        y={y + SIZE / 2 + 8}
+        y={y + SIZE / 2 + 6}
         textAnchor="middle"
-        fontSize={26}
+        fontSize={centerFontSize}
         fontWeight={pair ? 600 : undefined}
         fill="var(--cand)"
       >
@@ -341,21 +350,21 @@ function renderMarks(
       <React.Fragment key={`p${d}`}>
         {hl(d) && frame && (
           <rect
-            x={x + slot[0] - 10}
-            y={y + slot[1] - 17}
-            width={20}
-            height={22}
-            rx={5}
+            x={x + slot[0] - 9}
+            y={y + slot[1] - 14}
+            width={18}
+            height={20}
+            rx={4}
             fill="none"
             stroke="var(--accent)"
-            strokeWidth={1.6}
+            strokeWidth={1.5}
           />
         )}
         <text
           x={x + slot[0]}
           y={y + slot[1]}
           textAnchor="middle"
-          fontSize={21}
+          fontSize={16}
           fontWeight={hl(d) ? 700 : 600}
           fill={hl(d) ? 'var(--accent)' : 'var(--cand)'}
         >
@@ -369,27 +378,14 @@ function renderMarks(
     return (
       <>
         {cornerElements}
-        {centerLine ?? (
-          <text
-            key="cl2"
-            x={x + SIZE / 2}
-            y={y + SIZE / 2 + 7}
-            textAnchor="middle"
-            fontSize={Math.min(22, 118 / centerDs.length + 4)}
-            fill="var(--cand)"
-          >
-            {lineTspans(centerDs)}
-          </text>
-        )}
+        {centerLine}
       </>
     );
   }
 
   if (cornerDs.length) return <>{cornerElements}</>;
 
-  // centre only: line while it reads like a note, grid once it's a full list
-  if (centerDs.length <= 4) return centerLine;
-  return <>{centerDs.map((d) => gridText(d, false))}</>;
+  return centerLine;
 }
 
 /** the selected cell in words, for the live region beside the board */
@@ -1329,40 +1325,59 @@ export function Grid() {
                     {cell.value}
                   </text>
                 ) : candDisplay ? (
-                  digitsOf(candDisplay).map((d) => (
-                    <React.Fragment key={d}>
-                      {hlDigits.has(d) && frameHighlights && !marks?.has(d) && (
-                        <rect
-                          className="cand-frame cand-frame-hl"
-                          x={x + candX(d) - 11}
-                          y={y + candY(d) - 19}
-                          width={22}
-                          height={25}
-                          rx={5}
-                          fill="none"
-                          stroke="var(--accent)"
-                          strokeWidth={1.6}
-                        />
-                      )}
-                      <text
-                        className={hlDigits.has(d) ? 'cand-text-hl' : undefined}
-                        x={x + candX(d)}
-                        y={y + candY(d)}
-                        textAnchor="middle"
-                        fontSize={23}
-                        fontWeight={marks?.has(d) ? 700 : hlDigits.has(d) ? 700 : pairs.has(i) ? 600 : 400}
-                        fill={
-                          marks?.has(d)
-                            ? hintTextFill(marks.get(d)!)
-                            : hlDigits.has(d)
-                              ? 'var(--accent)'
-                              : 'var(--cand)'
-                        }
-                      >
-                        {d}
-                      </text>
-                    </React.Fragment>
-                  ))
+                  <>
+                    {digitsOf(candDisplay).map((d) => (
+                      <React.Fragment key={d}>
+                        {hlDigits.has(d) && frameHighlights && !marks?.has(d) && (
+                          <rect
+                            className="cand-frame cand-frame-hl"
+                            x={x + candX(d) - 11}
+                            y={y + candY(d) - 19}
+                            width={22}
+                            height={25}
+                            rx={5}
+                            fill="none"
+                            stroke="var(--accent)"
+                            strokeWidth={1.6}
+                          />
+                        )}
+                        <text
+                          className={hlDigits.has(d) ? 'cand-text-hl' : undefined}
+                          x={x + candX(d)}
+                          y={y + candY(d)}
+                          textAnchor="middle"
+                          fontSize={23}
+                          fontWeight={marks?.has(d) ? 700 : hlDigits.has(d) ? 700 : pairs.has(i) ? 600 : 400}
+                          fill={
+                            marks?.has(d)
+                              ? hintTextFill(marks.get(d)!)
+                              : hlDigits.has(d)
+                                ? 'var(--accent)'
+                                : 'var(--cand)'
+                          }
+                        >
+                          {d}
+                        </text>
+                      </React.Fragment>
+                    ))}
+                    {cell.corner > 0 &&
+                      digitsOf(cell.corner).map((d, k) => {
+                        const slot = PERIMETER[k % PERIMETER.length];
+                        return (
+                          <text
+                            key={`p${d}`}
+                            x={x + slot[0]}
+                            y={y + slot[1]}
+                            textAnchor="middle"
+                            fontSize={16}
+                            fontWeight={600}
+                            fill="var(--cand)"
+                          >
+                            {d}
+                          </text>
+                        );
+                      })}
+                  </>
                 ) : (
                   renderMarks(cell, x, y, marks, hlDigits, frameHighlights, pairs.has(i))
                 )}
