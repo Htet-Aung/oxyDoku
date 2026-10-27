@@ -333,7 +333,7 @@ export function MobileFloatingPanel({
         </div>
       ) : (
         /* EXPANDED MODE: Full scrollable panel content */
-        <div className="mobile-floating-body">
+        <div className={`mobile-floating-body ${activeTab === 'patterns' ? 'scanner-tab-body' : ''}`}>
           {activeTab === 'patterns' && (
             <PatternScannerPanel
               onClose={onClose}

@@ -21,6 +21,8 @@ import { walkFrames } from '../engine/hintFrames';
 import { stepText } from '../content/eureka';
 import { copyText } from './send';
 import { MicroscopeIcon, GearIcon, SearchIcon, GraduationCapIcon, CheckIcon, LightbulbIcon } from './Icons';
+import { StepExplanationView } from './StepExplanationView';
+import { explainStep } from '../content/stepExplainer';
 
 const ALL_CATEGORIES: Category[] = [
   'Singles',
@@ -542,7 +544,8 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                       {instances.map((inst) => {
                         const isSelected = selectedInstanceId === inst.id;
                         const isDetailOpen = detailInstanceId === inst.id;
-                        const frames = isSelected ? walkFrames(inst.step) : [];
+                        const exp = explainStep(inst.step);
+                        const frames = isSelected ? (exp.walkFrames.length > 1 ? exp.walkFrames : walkFrames(inst.step)) : [];
                         const walking = isSelected && stage === 'walk' && frames.length > 0;
                         const otherExplanationsCount =
                           (scanResult?.byConclusion[inst.conclusionKey]?.length ?? 1) - 1;
@@ -730,7 +733,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                                     </div>
                                   </div>
                                 ) : (
-                                  <p className="scanner-desc-text">{inst.step.description}</p>
+                                  <StepExplanationView step={inst.step} compact={true} defaultExpanded={true} />
                                 )}
                                 <p className="scanner-concept-note">
                                   <strong>{t('Reasoning Concept:')}</strong> {t(concept.name)} — {t(concept.summary)}
@@ -813,7 +816,8 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                         const fam = getFamiliarity(mastery, inst.tech);
                         const isUnfamiliar = fam === 'unfamiliar';
                         const concept = getTechniqueConcept(inst.tech);
-                        const frames = isSelected ? walkFrames(inst.step) : [];
+                        const exp = explainStep(inst.step);
+                        const frames = isSelected ? (exp.walkFrames.length > 1 ? exp.walkFrames : walkFrames(inst.step)) : [];
                         const walking = isSelected && stage === 'walk' && frames.length > 0;
 
                         return (
@@ -952,7 +956,7 @@ export function PatternScannerPanel({ onClose, onLearn, onOpenMastery }: Pattern
                                     </div>
                                   </div>
                                 ) : (
-                                  <p className="scanner-desc-text">{inst.step.description}</p>
+                                  <StepExplanationView step={inst.step} compact={true} defaultExpanded={true} />
                                 )}
                                 <p className="scanner-concept-note">
                                   <strong>{t('Reasoning Concept:')}</strong> {t(concept.name)} — {t(concept.summary)}

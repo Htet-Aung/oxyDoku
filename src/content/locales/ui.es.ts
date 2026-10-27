@@ -962,7 +962,16 @@ const ui: Dictionary = {
   "True pure-black AMOLED with sapphire highlights": "Negro puro AMOLED con detalles en zafiro",
   "Terminal": "Terminal",
   "Phosphor green CRT monochrome with vintage retro glow": "Monocromo CRT verde fósforo con resplandor retro clásico",
-  "Tap to select, and use the on-screen mode and number buttons. To select several cells, drag across them. On a phone a quick swipe up or down over the board scrolls the page instead: rest your finger on the first cell for a moment, then drag in any direction. Hold a number key for a moment to enter it as a corner mark without changing mode. Tap the selected cell again, or anywhere beside the board, to clear the highlight, and long-press a digit on the board to highlight all of its cells.": "Toca para seleccionar y usa los botones de modo y número en pantalla. Para seleccionar varias celdas, arrastra sobre ellas. En un móvil, un deslizamiento rápido hacia arriba o hacia abajo desplaza la página: apoya el dedo un momento en la primera celda y arrastra en cualquier dirección. Mantén pulsada una tecla numérica para introducirla como marca de esquina sin cambiar de modo. Toca de nuevo la celda seleccionada, o fuera del tablero, para borrar el resaltado, y mantén pulsado un dígito en el tablero para resaltar todas sus celdas."
+  "Tap to select, and use the on-screen mode and number buttons. To select several cells, drag across them. On a phone a quick swipe up or down over the board scrolls the page instead: rest your finger on the first cell for a moment, then drag in any direction. Hold a number key for a moment to enter it as a corner mark without changing mode. Tap the selected cell again, or anywhere beside the board, to clear the highlight, and long-press a digit on the board to highlight all of its cells.": "Toca para seleccionar y usa los botones de modo y número en pantalla. Para seleccionar varias celdas, arrastra sobre ellas. En un móvil, un deslizamiento rápido hacia arriba o hacia abajo desplaza la página: apoya el dedo un momento en la primera celda y arrastra en cualquier dirección. Mantén pulsada una tecla numérica para introducirla como marca de esquina sin cambiar de modo. Toca de nuevo la celda seleccionada, o fuera del tablero, para borrar el resaltado, y mantén pulsado un dígito en el tablero para resaltar todas sus celdas.",
+  "Hide logical deduction": "Ocultar deducción lógica",
+  "Why does this work? (Step-by-step logic)": "¿Por qué funciona esto? (Lógica paso a paso)",
+  "Core Principle": "Principio fundamental",
+  "Case-by-Case Proof": "Demostración caso por caso",
+  "Branch {n}": "Rama {n}",
+  "How the Logic Works": "Cómo funciona la lógica",
+  "Why These Notes Can Be Eliminated": "Por qué se pueden eliminar estas notas",
+  "Why This Digit Is Placed": "Por qué se coloca esta cifra",
+  "Pattern Cells & Houses": "Casillas y sectores del patrón"
 };
 
 export default ui;

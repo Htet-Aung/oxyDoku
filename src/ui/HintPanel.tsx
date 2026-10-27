@@ -15,6 +15,8 @@ import { copyText } from './send';
 import { useT, rich, Translator } from '../content/i18n';
 import { useLearnLocale } from './useLearnLocale';
 import { CheckIcon } from './Icons';
+import { StepExplanationView } from './StepExplanationView';
+import { explainStep } from '../content/stepExplainer';
 
 const KEY_SEEN = 'sudokui-cellkey-seen';
 
@@ -188,7 +190,8 @@ export function HintPanel({ onLearn, onReport }: { onLearn: (tech: Tech) => void
   const name = t.tech(hint.tech);
   const level = t.level(info.level);
   const needed = neededIn(t, hint.tech);
-  const frames = walkFrames(hint);
+  const exp = React.useMemo(() => (hint ? explainStep(hint) : null), [hint]);
+  const frames = exp && exp.walkFrames.length > 1 ? exp.walkFrames : walkFrames(hint);
   const walking = stage === 'walk';
   const banded = (role: 'primary' | 'secondary') => !!hint.units?.some((u) => u.role === role);
   const frame = walking ? frames[Math.min(walkIndex, frames.length - 1)] : null;
@@ -251,7 +254,7 @@ export function HintPanel({ onLearn, onReport }: { onLearn: (tech: Tech) => void
               </div>
             </div>
           ) : (
-            <p>{describe(hint)}</p>
+            <StepExplanationView step={hint} defaultExpanded={true} />
           )}
           {!frame && showKey && /r\dc\d/.test(hint.description) && (
             <p className="hint-key">{t('r2c3 means row 2, column 3, counted from the top left.')}</p>

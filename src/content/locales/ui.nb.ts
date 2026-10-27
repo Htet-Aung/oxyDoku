@@ -962,7 +962,16 @@ const ui: Dictionary = {
   "True pure-black AMOLED with sapphire highlights": "Ren AMOLED-sort med safirblå detaljer",
   "Terminal": "Terminal",
   "Phosphor green CRT monochrome with vintage retro glow": "Fosforgrønn monokrom CRT med vintage retro-glød",
-  "Tap to select, and use the on-screen mode and number buttons. To select several cells, drag across them. On a phone a quick swipe up or down over the board scrolls the page instead: rest your finger on the first cell for a moment, then drag in any direction. Hold a number key for a moment to enter it as a corner mark without changing mode. Tap the selected cell again, or anywhere beside the board, to clear the highlight, and long-press a digit on the board to highlight all of its cells.": "Trykk for å velge, og bruk modus- og tallknappene på skjermen. Dra over rutene for å velge flere. På mobil blar et raskt sveip opp eller ned siden isteden: hvil fingeren et øyeblikk på den første ruten, og dra i hvilken som helst retning. Hold en talltast et øyeblikk for å føre den inn som hjørnemarkering uten å bytte modus. Trykk på den valgte ruten igjen, eller hvor som helst utenfor brettet, for å fjerne markeringen, og trykk og hold et tall på brettet for å markere alle rutene med det tallet."
+  "Tap to select, and use the on-screen mode and number buttons. To select several cells, drag across them. On a phone a quick swipe up or down over the board scrolls the page instead: rest your finger on the first cell for a moment, then drag in any direction. Hold a number key for a moment to enter it as a corner mark without changing mode. Tap the selected cell again, or anywhere beside the board, to clear the highlight, and long-press a digit on the board to highlight all of its cells.": "Trykk for å velge, og bruk modus- og tallknappene på skjermen. Dra over rutene for å velge flere. På mobil blar et raskt sveip opp eller ned siden isteden: hvil fingeren et øyeblikk på den første ruten, og dra i hvilken som helst retning. Hold en talltast et øyeblikk for å føre den inn som hjørnemarkering uten å bytte modus. Trykk på den valgte ruten igjen, eller hvor som helst utenfor brettet, for å fjerne markeringen, og trykk og hold et tall på brettet for å markere alle rutene med det tallet.",
+  "Hide logical deduction": "Skjul logisk slutning",
+  "Why does this work? (Step-by-step logic)": "Hvorfor fungerer dette? (Trinnvis logikk)",
+  "Core Principle": "Kjerneprinsipp",
+  "Case-by-Case Proof": "Trinnvis tilfellebevis",
+  "Branch {n}": "Gren {n}",
+  "How the Logic Works": "Slik fungerer logikken",
+  "Why These Notes Can Be Eliminated": "Hvorfor disse notatene kan fjernes",
+  "Why This Digit Is Placed": "Hvorfor dette tallet plasseres",
+  "Pattern Cells & Houses": "Mønsterruter og hus"
 };
 
 export default ui;
